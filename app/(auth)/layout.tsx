@@ -8,37 +8,44 @@ const Layout = async ({ children }: { children: ReactNode }) => {
   if (session) redirect("/");
 
   return (
-    <main className="min-h-screen flex flex-col lg:flex-row bg-blue-950">
-      <section className="h-64 lg:h-auto lg:flex-1 relative order-first lg:order-last">
+    <main className="min-h-screen flex flex-col lg:flex-row bg-blue-900">
+      {/* Imagen lateral */}
+      <section className="hidden lg:block lg:h-auto lg:flex-1 relative order-first lg:order-last">
         <Image
           className="object-cover w-full h-full"
           src="/hotel.jpg"
-          alt="hotel"
+          alt="Hotel"
           width={1000}
           height={1000}
           priority
         />
-        <div className="absolute inset-0 bg-black/30"></div>
+        <div className="absolute inset-0 bg-black/40"></div>
       </section>
 
-      <section className="flex-1 flex items-center justify-center p-8">
+      {/* Formulario */}
+      <section className="bg-gradient-to-b from-gray-50 to-white  flex items-center justify-center p-4 lg:p-12">
         <div className="w-full max-w-md">
+          {/* Logo + Título */}
           <div className="flex items-center gap-3 mb-8 justify-center">
             <Image
               src="/meivcore.png"
-              alt="logo"
-              width={37}
-              height={37}
+              alt="Logo Hostal Meivcore"
+              width={120}
+              height={120}
               className="rounded"
             />
-            <h1 className="text-2xl font-semibold text-white">
-              Hostal Meivcore
-            </h1>
           </div>
 
-          <div className="bg-white/10 backdrop-blur-sm rounded-lg p-6 border border-white/20">
+          {/* Caja del formulario */}
+          <div className="bg-white/90 backdrop-blur-sm rounded-xl shadow-md p-6 border border-gray-200">
             {children}
           </div>
+
+          {/* Pie de página opcional */}
+          <p className="mt-6 text-center text-sm text-gray-900">
+            © {new Date().getFullYear()} Hostal Meivcore · Todos los derechos
+            reservados
+          </p>
         </div>
       </section>
     </main>

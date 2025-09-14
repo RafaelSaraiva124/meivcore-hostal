@@ -8,12 +8,11 @@ import {
   FieldValues,
   Path,
 } from "react-hook-form";
-import { z, ZodType } from "zod";
+import { ZodType } from "zod";
 import { Button } from "@/components/ui/button";
 import {
   Form,
   FormControl,
-  FormDescription,
   FormField,
   FormItem,
   FormLabel,
@@ -30,6 +29,7 @@ interface Props<T extends FieldValues> {
   onSubmit: (data: T) => Promise<{ success: boolean; error?: string }>;
   type: "SIGN_IN" | "SIGN_UP";
 }
+
 const AuthForm = <T extends FieldValues>({
   type,
   schema,
@@ -42,38 +42,44 @@ const AuthForm = <T extends FieldValues>({
     resolver: zodResolver(schema as any),
     defaultValues: defaultValues as DefaultValues<T>,
   });
+
   const handleSubmit: SubmitHandler<T> = async (data) => {
     const result = await onSubmit(data);
     if (result.success) {
       toast({
-        title: "Success",
-        description: "You have successfully signed in",
+        title: "Éxito",
+        description: isSignIN
+          ? "Has iniciado sesión correctamente"
+          : "Tu cuenta ha sido creada con éxito",
       });
 
       router.push("/");
     } else {
       toast({
-        title: `Error ${isSignIN ? "Signing In" : "Signing Up"}`,
-        description: result.error ?? "An error occurred.",
+        title: "Error",
+        description: result.error ?? "Ha ocurrido un error.",
         variant: "destructive",
       });
     }
   };
 
   return (
-    <div className="flex flex-col gap-4">
-      <h1 className="text-2xl font-semibold text-white">
-        {isSignIN ? "Welcome Back to Hostal Meivcore" : "Create an Account"}
-      </h1>
-      <p className="text-light-100">
+    <div className="flex flex-col gap-6 max-w-md mx-auto bg-white shadow-md rounded-xl p-6">
+      <h1 className="text-2xl font-bold text-center text-gray-800">
         {isSignIN
-          ? "Access Hostal Meivcore Platform"
-          : "Please complete all the fields!"}
+          ? "Bienvenido de nuevo a Hostal Meivcore"
+          : "Crear una cuenta"}
+      </h1>
+      <p className="text-center text-gray-500 text-sm">
+        {isSignIN
+          ? "Accede a la plataforma de Hostal Meivcore"
+          : "Por favor completa todos los campos"}
       </p>
+
       <Form {...form}>
         <form
           onSubmit={form.handleSubmit(handleSubmit)}
-          className="space-y-6 w-full"
+          className="space-y-5 w-full"
         >
           {Object.keys(defaultValues).map((field) => (
             <FormField
@@ -82,23 +88,32 @@ const AuthForm = <T extends FieldValues>({
               name={field as Path<T>}
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel className="capitalize">
+                  <FormLabel className="capitalize text-gray-700">
                     {FIELD_NAMES[field.name as keyof typeof FIELD_NAMES]}
                   </FormLabel>
                   <FormControl>
-                    <Input placeholder="shadcn" {...field} />
+                    <Input
+                      placeholder={`Introduce tu ${FIELD_NAMES[field.name as keyof typeof FIELD_NAMES]}`}
+                      {...field}
+                      className="border rounded-md px-3 py-2 w-full focus:ring-2 focus:ring-blue-500"
+                    />
                   </FormControl>
-                  <FormMessage />
+                  <FormMessage className="text-red-500 text-sm" />
                 </FormItem>
               )}
             />
           ))}
-          <Button type="submit" className="form-btn text-white">
-            {isSignIN ? "Entrar" : "Criar Conta"}
-          </Button>{" "}
+
+          <Button
+            type="submit"
+            className="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 rounded-lg transition"
+          >
+            {isSignIN ? "Iniciar Sesión" : "Crear Cuenta"}
+          </Button>
         </form>
       </Form>
     </div>
   );
 };
+
 export default AuthForm;
