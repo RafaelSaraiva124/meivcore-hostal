@@ -22,6 +22,7 @@ const Page = () => {
   const [room, setRoom] = useState<Room | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isAdmin, setIsAdmin] = useState(false);
+  const [isCheckingAuth, setIsCheckingAuth] = useState(true);
 
   const [guest1Name, setGuest1Name] = useState("");
   const [guest1Phone, setGuest1Phone] = useState("");
@@ -37,9 +38,21 @@ const Page = () => {
   // Verificar se usuário é admin
   useEffect(() => {
     const checkAdmin = async () => {
-      if (!session?.user?.id) return;
-      const result = await requireAdmin(session.user.id);
-      setIsAdmin(result.allowed);
+      if (!session?.user?.id) {
+        setIsCheckingAuth(false);
+        return;
+      }
+
+      setIsCheckingAuth(true);
+      try {
+        const result = await requireAdmin(session.user.id);
+        setIsAdmin(result.allowed);
+      } catch (error) {
+        console.error("Erro ao verificar permissões:", error);
+        setIsAdmin(false);
+      } finally {
+        setIsCheckingAuth(false);
+      }
     };
     checkAdmin();
   }, [session]);
@@ -88,7 +101,7 @@ const Page = () => {
     ) {
       setAlert({
         type: "error",
-        message: "Complete todos os campos obligatórios.",
+        message: "Complete todos os campos obrigatórios.",
       });
       return;
     }
@@ -142,7 +155,7 @@ const Page = () => {
     }
 
     if (!room) return;
-    const confirm = window.confirm("¿Tem certeza que deseja fazer o checkout?");
+    const confirm = window.confirm("Tem certeza que deseja fazer o checkout?");
     if (!confirm) return;
 
     setIsSubmitting(true);
@@ -198,9 +211,13 @@ const Page = () => {
     }
   };
 
-  if (isLoading) return <p className="text-center mt-10">Carregando...</p>;
-  if (!room)
+  if (isLoading || isCheckingAuth) {
+    return <p className="text-center mt-10">Carregando...</p>;
+  }
+
+  if (!room) {
     return <p className="text-center mt-10">Habitação não encontrada</p>;
+  }
 
   return (
     <div className="max-w-xl mx-auto p-6 space-y-6 bg-white shadow-md rounded-lg">
@@ -285,7 +302,7 @@ const Page = () => {
                 </>
               )}
               <Button
-                className="w-full bg-blue-500 hover:bg-blue-600"
+                className="w-full"
                 onClick={handleAddGuest}
                 disabled={isSubmitting}
               >

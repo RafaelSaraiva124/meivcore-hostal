@@ -38,24 +38,23 @@ const Header = ({ session }: { session: Session }) => {
           </Link>
 
           {/* Navigation */}
-          <nav className="flex items-center space-x-3 sm:space-x-8">
-            <ul className="flex items-center space-x-3 sm:space-x-6 list-none m-0 p-0">
+          <nav className="flex items-center space-x-2 sm:space-x-8">
+            <ul className="flex items-center space-x-2 sm:space-x-6 list-none m-0 p-0">
               {/* Botão “Gestionar” só para admins */}
               {isAdmin && (
                 <li>
                   <Link
                     href="/create-room"
                     className={cn(
-                      "relative px-2 py-1.5 sm:px-3 sm:py-2 text-xs sm:text-sm font-medium transition-all duration-200 no-underline rounded-md",
+                      "relative px-1.5 py-1 sm:px-3 sm:py-2 text-xs sm:text-sm font-medium transition-all duration-200 no-underline rounded-md",
                       pathname === "/create-room"
                         ? "text-blue-600 bg-blue-50"
                         : "text-gray-600 hover:text-gray-900 hover:bg-gray-50",
                     )}
                   >
-                    <span className="hidden sm:inline">Gestionar</span>
-                    <span className="sm:hidden">🏠</span>
+                    <span className="text-xs sm:text-sm">Gestionar</span>
                     {pathname === "/create-room" && (
-                      <div className="absolute bottom-0 left-1/2 transform -translate-x-1/2 w-1 h-1 bg-blue-600 rounded-full -mb-1"></div>
+                      <div className="absolute bottom-0 left-1/2 transform -translate-x-1/2 w-1 h-1 sm:w-1.5 sm:h-1.5 bg-blue-600 rounded-full -mb-0.5 sm:-mb-1"></div>
                     )}
                   </Link>
                 </li>
@@ -65,16 +64,15 @@ const Header = ({ session }: { session: Session }) => {
                 <Link
                   href="/room-list"
                   className={cn(
-                    "relative px-2 py-1.5 sm:px-3 sm:py-2 text-xs sm:text-sm font-medium transition-all duration-200 no-underline rounded-md",
+                    "relative px-1.5 py-1 sm:px-3 sm:py-2 text-xs sm:text-sm font-medium transition-all duration-200 no-underline rounded-md",
                     pathname === "/room-list"
                       ? "text-blue-600 bg-blue-50"
                       : "text-gray-600 hover:text-gray-900 hover:bg-gray-50",
                   )}
                 >
-                  <span className="hidden sm:inline">Habitaciones</span>
-                  <span className="sm:hidden">🏠</span>
+                  <span className="text-xs sm:text-sm">Habitaciones</span>
                   {pathname === "/room-list" && (
-                    <div className="absolute bottom-0 left-1/2 transform -translate-x-1/2 w-1 h-1 bg-blue-600 rounded-full -mb-1"></div>
+                    <div className="absolute bottom-0 left-1/2 transform -translate-x-1/2 w-1 h-1 sm:w-1.5 sm:h-1.5 bg-blue-600 rounded-full -mb-0.5 sm:-mb-1"></div>
                   )}
                 </Link>
               </li>
@@ -83,15 +81,15 @@ const Header = ({ session }: { session: Session }) => {
               <li>
                 <Link
                   href="/my-profile"
-                  className="flex items-center space-x-1.5 sm:space-x-2 p-0.5 sm:p-1 rounded-full hover:bg-gray-50 transition-colors duration-200"
+                  className="flex items-center space-x-1 sm:space-x-2 p-0.5 sm:p-1 rounded-full hover:bg-gray-50 transition-colors duration-200"
                 >
-                  <Avatar className="w-8 h-8 sm:w-9 sm:h-9 ring-1 sm:ring-2 ring-gray-200 hover:ring-blue-300 transition-all duration-200">
-                    <AvatarFallback className="w-full h-full bg-gradient-to-br from-blue-600 to-blue-700 text-white text-xs sm:text-sm font-semibold flex items-center justify-center rounded-full">
+                  <Avatar className="w-7 h-7 sm:w-9 sm:h-9 ring-1 sm:ring-2 ring-gray-200 hover:ring-blue-300 transition-all duration-200">
+                    <AvatarFallback className="w-full h-full bg-gradient-to-br from-blue-600 to-blue-700 text-white text-[10px] sm:text-sm font-semibold flex items-center justify-center rounded-full">
                       {getInitials(session?.user?.name || "IN")}
                     </AvatarFallback>
                   </Avatar>
                   <div className="hidden md:block">
-                    <p className="text-xs sm:text-sm font-medium text-gray-700 truncate max-w-20 sm:max-w-24">
+                    <p className="text-xs sm:text-sm font-medium text-gray-700 truncate max-w-16 sm:max-w-24">
                       {session?.user?.name?.split(" ")[0] || "Utilizador"}
                     </p>
                   </div>

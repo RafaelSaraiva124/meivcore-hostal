@@ -72,20 +72,23 @@ const RoomListPage = () => {
     router.push(`/rooms/${roomId}`);
   };
 
-  if (isLoading) return <p>Cargando habitaciones...</p>;
+  if (isLoading)
+    return <p className="text-center mt-6">Cargando habitaciones...</p>;
 
   return (
-    <div className="max-w-7xl mx-auto p-6">
-      <h1 className="text-2xl font-bold mb-4">Lista de Habitaciones</h1>
+    <div className="max-w-7xl mx-auto p-4 sm:p-6">
+      <h1 className="text-xl sm:text-2xl font-bold mb-4 text-center sm:text-left">
+        Lista de Habitaciones
+      </h1>
 
-      {/* Filtros */}
-      <div className="flex flex-wrap gap-4 mb-4 items-center">
-        <div>
-          <label className="mr-2 font-medium">Estado:</label>
+      {/* Filtros responsivos */}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:gap-4 gap-2 mb-4">
+        <div className="flex items-center gap-1">
+          <label className="font-medium text-xs sm:text-sm">Estado:</label>
           <select
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value as any)}
-            className="border rounded px-2 py-1"
+            className="border rounded px-2 py-1 text-xs sm:text-sm"
           >
             <option value="All">Todos</option>
             <option value="Free">Libre</option>
@@ -94,12 +97,12 @@ const RoomListPage = () => {
           </select>
         </div>
 
-        <div>
-          <label className="mr-2 font-medium">Ordenar Nº:</label>
+        <div className="flex items-center gap-1">
+          <label className="font-medium text-xs sm:text-sm">Ordenar Nº:</label>
           <select
             value={sortOrder}
             onChange={(e) => setSortOrder(e.target.value as "asc" | "desc")}
-            className="border rounded px-2 py-1"
+            className="border rounded px-2 py-1 text-xs sm:text-sm"
           >
             <option value="asc">Ascendente</option>
             <option value="desc">Descendente</option>
@@ -107,7 +110,7 @@ const RoomListPage = () => {
         </div>
 
         <button
-          className="bg-gray-200 px-3 py-1 rounded hover:bg-gray-300"
+          className="bg-gray-200 px-2 py-1 rounded text-xs sm:text-sm hover:bg-gray-300 mt-2 sm:mt-0"
           onClick={() => {
             setStatusFilter("All");
             setSortOrder("asc");
@@ -117,13 +120,10 @@ const RoomListPage = () => {
         </button>
       </div>
 
+      {/* Alert */}
       {alert && (
         <Alert
-          className={`mb-4 ${
-            alert.type === "success"
-              ? "border-green-200 bg-green-50"
-              : "border-red-200 bg-red-50"
-          }`}
+          className={`mb-4 ${alert.type === "success" ? "border-green-200 bg-green-50" : "border-red-200 bg-red-50"}`}
         >
           {alert.type === "success" ? (
             <CheckCircle className="h-4 w-4 text-green-600" />
@@ -140,11 +140,12 @@ const RoomListPage = () => {
         </Alert>
       )}
 
+      {/* Tabla responsiva */}
       {rooms.length === 0 ? (
-        <p>No se encontraron habitaciones.</p>
+        <p className="text-center mt-4">No se encontraron habitaciones.</p>
       ) : (
         <div className="overflow-x-auto">
-          <table className="w-full border-collapse border border-gray-200">
+          <table className="w-full border-collapse border border-gray-200 text-xs sm:text-sm">
             <thead>
               <tr className="bg-gray-50">
                 <th className="border border-gray-200 p-2 text-left">Nº</th>
