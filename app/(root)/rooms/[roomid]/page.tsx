@@ -14,11 +14,11 @@ import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { CheckCircle, AlertCircle } from "lucide-react";
 import { requireAdmin } from "@/lib/actions/auth";
-import { useSession } from "next-auth/react"; // Para pegar userId
+import { useSession } from "next-auth/react";
 
 const Page = () => {
   const { roomid } = useParams();
-  const { data: session } = useSession(); // session.user.id disponível
+  const { data: session } = useSession();
   const [room, setRoom] = useState<Room | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isAdmin, setIsAdmin] = useState(false);
@@ -44,7 +44,7 @@ const Page = () => {
     checkAdmin();
   }, [session]);
 
-  // Carregar dados da habitación
+  // Carregar dados da habitação
   useEffect(() => {
     const fetchRoom = async () => {
       const roomId = Array.isArray(roomid) ? roomid[0] : roomid;
@@ -71,8 +71,16 @@ const Page = () => {
     fetchRoom();
   }, [roomid]);
 
-  // Adicionar huésped
+  // Adicionar hóspede (APENAS ADMIN)
   const handleAddGuest = async () => {
+    if (!isAdmin) {
+      setAlert({
+        type: "error",
+        message: "Apenas administradores podem fazer check-in.",
+      });
+      return;
+    }
+
     if (
       !guest1Name.trim() ||
       !guest1Phone.trim() ||
@@ -80,7 +88,7 @@ const Page = () => {
     ) {
       setAlert({
         type: "error",
-        message: "Complete todos los campos obligatorios.",
+        message: "Complete todos os campos obligatórios.",
       });
       return;
     }
@@ -108,25 +116,33 @@ const Page = () => {
         setGuest2Phone("");
         setAlert({
           type: "success",
-          message: "¡Huésped(es) añadido(s) con éxito!",
+          message: "¡Hóspede(s) adicionado(s) com sucesso!",
         });
       } else {
         setAlert({
           type: "error",
-          message: result.error || "Error al añadir huésped.",
+          message: result.error || "Erro ao adicionar hóspede.",
         });
       }
     } catch {
-      setAlert({ type: "error", message: "Error inesperado." });
+      setAlert({ type: "error", message: "Erro inesperado." });
     } finally {
       setIsSubmitting(false);
     }
   };
 
-  // Checkout
+  // Checkout (APENAS ADMIN)
   const handleCheckout = async () => {
+    if (!isAdmin) {
+      setAlert({
+        type: "error",
+        message: "Apenas administradores podem fazer checkout.",
+      });
+      return;
+    }
+
     if (!room) return;
-    const confirm = window.confirm("¿Está seguro que desea hacer el checkout?");
+    const confirm = window.confirm("¿Tem certeza que deseja fazer o checkout?");
     if (!confirm) return;
 
     setIsSubmitting(true);
@@ -139,22 +155,22 @@ const Page = () => {
         });
         setAlert({
           type: "success",
-          message: "¡Checkout realizado con éxito!",
+          message: "¡Checkout realizado com sucesso!",
         });
       } else {
         setAlert({
           type: "error",
-          message: result.error || "Error al realizar el checkout.",
+          message: result.error || "Erro ao realizar o checkout.",
         });
       }
     } catch {
-      setAlert({ type: "error", message: "Error inesperado." });
+      setAlert({ type: "error", message: "Erro inesperado." });
     } finally {
       setIsSubmitting(false);
     }
   };
 
-  // Marcar como limpia
+  // Marcar como limpa (TODOS podem fazer)
   const handleMarkClean = async () => {
     if (!room) return;
     setIsSubmitting(true);
@@ -167,28 +183,28 @@ const Page = () => {
         });
         setAlert({
           type: "success",
-          message: "¡Habitación marcada como limpia!",
+          message: "¡Habitação marcada como limpa!",
         });
       } else {
         setAlert({
           type: "error",
-          message: result.error || "Error al actualizar estado.",
+          message: result.error || "Erro ao atualizar estado.",
         });
       }
     } catch {
-      setAlert({ type: "error", message: "Error inesperado." });
+      setAlert({ type: "error", message: "Erro inesperado." });
     } finally {
       setIsSubmitting(false);
     }
   };
 
-  if (isLoading) return <p className="text-center mt-10">Cargando...</p>;
+  if (isLoading) return <p className="text-center mt-10">Carregando...</p>;
   if (!room)
-    return <p className="text-center mt-10">Habitación no encontrada</p>;
+    return <p className="text-center mt-10">Habitação não encontrada</p>;
 
   return (
     <div className="max-w-xl mx-auto p-6 space-y-6 bg-white shadow-md rounded-lg">
-      <h1 className="text-2xl font-bold mb-2">Habitación {room.number}</h1>
+      <h1 className="text-2xl font-bold mb-2">Habitação {room.number}</h1>
       <p className="text-gray-600 mb-4">
         Tipo:{" "}
         <span className="font-medium text-gray-800 uppercase">{room.type}</span>{" "}
@@ -203,10 +219,10 @@ const Page = () => {
           }`}
         >
           {room.status === "Free"
-            ? "Libre"
+            ? "Livre"
             : room.status === "Ocupied"
               ? "Ocupado"
-              : "Sucio"}
+              : "Sujo"}
         </span>
       </p>
 
@@ -233,90 +249,101 @@ const Page = () => {
         </Alert>
       )}
 
-      {/* HABITACIÓN LIBRE */}
-      {room.status === "Free" && isAdmin && (
+      {/* HABITAÇÃO LIVRE - APENAS ADMIN PODE FAZER CHECK-IN */}
+      {room.status === "Free" && (
         <div className="space-y-3">
           <p className="text-gray-700">
-            ¡Habitación libre! Añada los datos del huésped:
+            ¡Habitação livre!
+            {isAdmin
+              ? " Adicione os dados do hóspede:"
+              : " (Apenas administradores podem fazer check-in)"}
           </p>
-          <div className="space-y-2">
-            <Input
-              placeholder="Nombre huésped 1"
-              value={guest1Name}
-              onChange={(e) => setGuest1Name(e.target.value)}
-            />
-            <Input
-              placeholder="Teléfono huésped 1"
-              value={guest1Phone}
-              onChange={(e) => setGuest1Phone(e.target.value)}
-            />
-            {room.type === "double" && (
-              <>
-                <Input
-                  placeholder="Nombre huésped 2"
-                  value={guest2Name}
-                  onChange={(e) => setGuest2Name(e.target.value)}
-                />
-                <Input
-                  placeholder="Teléfono huésped 2"
-                  value={guest2Phone}
-                  onChange={(e) => setGuest2Phone(e.target.value)}
-                />
-              </>
-            )}
-            <Button
-              className="w-full"
-              onClick={handleAddGuest}
-              disabled={isSubmitting}
-            >
-              {isSubmitting ? "Añadiendo..." : "Añadir Huésped(es)"}
-            </Button>
-          </div>
+          {isAdmin && (
+            <div className="space-y-2">
+              <Input
+                placeholder="Nome hóspede 1"
+                value={guest1Name}
+                onChange={(e) => setGuest1Name(e.target.value)}
+              />
+              <Input
+                placeholder="Telefone hóspede 1"
+                value={guest1Phone}
+                onChange={(e) => setGuest1Phone(e.target.value)}
+              />
+              {room.type === "double" && (
+                <>
+                  <Input
+                    placeholder="Nome hóspede 2"
+                    value={guest2Name}
+                    onChange={(e) => setGuest2Name(e.target.value)}
+                  />
+                  <Input
+                    placeholder="Telefone hóspede 2"
+                    value={guest2Phone}
+                    onChange={(e) => setGuest2Phone(e.target.value)}
+                  />
+                </>
+              )}
+              <Button
+                className="w-full bg-blue-500 hover:bg-blue-600"
+                onClick={handleAddGuest}
+                disabled={isSubmitting}
+              >
+                {isSubmitting ? "Adicionando..." : "Adicionar Hóspede(s)"}
+              </Button>
+            </div>
+          )}
         </div>
       )}
 
-      {/* HABITACIÓN OCUPADA */}
-      {room.status === "Ocupied" && isAdmin && (
+      {/* HABITAÇÃO OCUPADA - APENAS ADMIN PODE FAZER CHECKOUT */}
+      {room.status === "Ocupied" && (
         <div className="space-y-3">
           <p className="text-gray-700">
-            Habitación ocupada por{" "}
+            Habitação ocupada por{" "}
             <span className="font-semibold">{room.guest1Name}</span>
             {room.type === "double" && room.guest2Name
-              ? ` y ${room.guest2Name}`
+              ? ` e ${room.guest2Name}`
               : ""}
           </p>
           {room.guest1Phone && (
             <p className="text-sm text-gray-600">
-              Teléfono: {room.guest1Phone}
+              Telefone: {room.guest1Phone}
             </p>
           )}
           {room.type === "double" && room.guest2Phone && (
             <p className="text-sm text-gray-600">
-              Teléfono: {room.guest2Phone}
+              Telefone: {room.guest2Phone}
             </p>
           )}
-          <Button
-            className="w-full bg-red-500 hover:bg-red-600"
-            onClick={handleCheckout}
-            disabled={isSubmitting}
-          >
-            {isSubmitting ? "Procesando..." : "Checkout"}
-          </Button>
+          {isAdmin ? (
+            <Button
+              className="w-full bg-red-500 hover:bg-red-600"
+              onClick={handleCheckout}
+              disabled={isSubmitting}
+            >
+              {isSubmitting ? "Processando..." : "Checkout"}
+            </Button>
+          ) : (
+            <p className="text-sm text-gray-500 italic">
+              (Apenas administradores podem fazer checkout)
+            </p>
+          )}
         </div>
       )}
 
-      {/* HABITACIÓN SUCIA */}
+      {/* HABITAÇÃO SUJA - TODOS PODEM MARCAR COMO LIMPA */}
       {room.status === "Dirty" && (
         <div className="space-y-3">
           <p className="text-gray-700">
-            ⚠️ ¡Habitación sucia! Esperando limpieza.
+            ⚠️ ¡Habitação suja! Esperando limpeza.
           </p>
           <Button
             className="w-full bg-yellow-500 hover:bg-yellow-600"
             onClick={handleMarkClean}
             disabled={isSubmitting}
           >
-            {isSubmitting ? "Procesando..." : "Marcar como limpia"}
+            {isSubmitting ? "Processando..." : "Marcar como limpa"}
           </Button>
         </div>
       )}
