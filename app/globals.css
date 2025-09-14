@@ -1,26 +1,59 @@
 @import "tailwindcss";
 
+
+/* CSS customizado para o Header - Tailwind v4 */
+
+/* Definindo as cores light-100 e light-200 como variáveis CSS */
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --color-light-100: #6b7280; /* gray-500 */
+  --color-light-200: #9ca3af; /* gray-400 */
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+/* Classes customizadas para as cores */
+.text-light-100 {
+  color: var(--color-light-100);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+.text-light-200 {
+  color: var(--color-light-200);
+}
+
+/* Componentes personalizados */
+.header-container {
+  @apply my-10 flex justify-between items-center gap-5 px-4;
+}
+
+.header-logo {
+  @apply text-lg font-semibold text-gray-800 hover:text-blue-600 transition-colors duration-200;
+}
+
+.nav-list {
+  @apply flex flex-row items-center gap-8;
+}
+
+.nav-item {
+  @apply list-none;
+}
+
+.nav-link {
+  @apply text-base cursor-pointer capitalize transition-colors duration-200 hover:text-gray-800;
+}
+
+.nav-link-active {
+  color: var(--color-light-200);
+}
+
+.nav-link-inactive {
+  color: var(--color-light-100);
+}
+
+/* Responsivo */
+@media (max-width: 640px) {
+  .header-container {
+    @apply flex-col gap-4 my-6;
   }
-}
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  .nav-list {
+    @apply gap-6;
+  }
 }
