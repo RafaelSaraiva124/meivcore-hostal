@@ -310,7 +310,7 @@ const Page = () => {
                 </>
               )}
               <Button
-                className="w-full"
+                className="w-full bg-blue-500 hover:bg-blue-600"
                 onClick={handleAddGuest}
                 disabled={isSubmitting}
               >

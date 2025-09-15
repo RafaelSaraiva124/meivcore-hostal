@@ -53,12 +53,12 @@ const Page = () => {
       } else {
         setAlert({
           type: "error",
-          message: statsResult.error || "Error al cargar estadísticas",
+          message: statsResult.error || "Error al cargar las estadísticas",
         });
       }
     } catch (error) {
-      console.error("Error al cargar estadísticas:", error);
-      setAlert({ type: "error", message: "Error al cargar estadísticas" });
+      console.error("Error al cargar las estadísticas:", error);
+      setAlert({ type: "error", message: "Error al cargar las estadísticas" });
     }
   };
 
@@ -81,7 +81,7 @@ const Page = () => {
         <h1 className="text-3xl font-bold text-gray-900">
           Gestión de Habitaciones
         </h1>
-        <p className="text-gray-600 mt-2">Resumen de estadísticas del hostel</p>
+        <p className="text-gray-600 mt-2">Resumen de estadísticas del hostal</p>
       </div>
 
       {/* Alertas */}
@@ -113,7 +113,7 @@ const Page = () => {
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">
-              Total Habitaciones
+              Total de Habitaciones
             </CardTitle>
             <Bed className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
