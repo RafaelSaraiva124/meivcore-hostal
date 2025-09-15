@@ -25,7 +25,10 @@ interface Room {
 
 const Page = () => {
   const [rooms, setRooms] = useState<Room[]>([]);
-  const [formData, setFormData] = useState({ number: "", type: "single" });
+  const [formData, setFormData] = useState({
+    number: "",
+    type: "single" as RoomType,
+  });
   const [selectedRoomId, setSelectedRoomId] = useState<string>("");
   const [alert, setAlert] = useState<{
     type: "success" | "error";
@@ -152,7 +155,7 @@ const Page = () => {
         </Alert>
       )}
 
-      {/* Criar quarto */}
+      {/* Crear cuarto */}
       <div className="bg-white shadow-md rounded-2xl border border-gray-200 p-4 sm:p-6 space-y-4">
         <h2 className="text-lg sm:text-xl font-semibold text-gray-800">
           Crear Nueva Habitación
@@ -203,7 +206,7 @@ const Page = () => {
         </form>
       </div>
 
-      {/* Deletar quarto */}
+      {/* Eliminar cuarto */}
       <div className="bg-white shadow-md rounded-2xl border border-gray-200 p-4 sm:p-6 space-y-4">
         <h2 className="text-lg sm:text-xl font-semibold text-gray-800">
           Eliminar Habitación

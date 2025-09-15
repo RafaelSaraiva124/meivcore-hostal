@@ -26,7 +26,7 @@ const Header = ({ session }: { session: Session }) => {
     <header className="bg-white border-b border-gray-200 shadow-sm sticky top-0 z-50">
       <div className="max-w-6xl mx-auto px-3 py-3 sm:px-4 sm:py-4">
         <div className="flex justify-between items-center">
-          {/* Logo/Brand */}
+          {/* Logo/Marca */}
           <Link
             href="/"
             className="flex items-center space-x-2 text-lg sm:text-xl font-bold text-gray-800 hover:text-blue-600 transition-colors duration-200 no-underline"
@@ -37,10 +37,10 @@ const Header = ({ session }: { session: Session }) => {
             <span className="hidden xs:block sm:inline">Hostal Meivcore</span>
           </Link>
 
-          {/* Navigation */}
+          {/* Navegación */}
           <nav className="flex items-center space-x-2 sm:space-x-8">
             <ul className="flex items-center space-x-2 sm:space-x-6 list-none m-0 p-0">
-              {/* Botão “Gestionar” só para admins */}
+              {/* Botón “Gestionar” solo para admins */}
               {isAdmin && (
                 <li>
                   <Link
@@ -76,8 +76,24 @@ const Header = ({ session }: { session: Session }) => {
                   )}
                 </Link>
               </li>
+              <li>
+                <Link
+                  href="/room-history"
+                  className={cn(
+                    "relative px-1.5 py-1 sm:px-3 sm:py-2 text-xs sm:text-sm font-medium transition-all duration-200 no-underline rounded-md",
+                    pathname === "/room-history"
+                      ? "text-blue-600 bg-blue-50"
+                      : "text-gray-600 hover:text-gray-900 hover:bg-gray-50",
+                  )}
+                >
+                  <span className="text-xs sm:text-sm">Historial</span>
+                  {pathname === "/room-history" && (
+                    <div className="absolute bottom-0 left-1/2 transform -translate-x-1/2 w-1 h-1 sm:w-1.5 sm:h-1.5 bg-blue-600 rounded-full -mb-0.5 sm:-mb-1"></div>
+                  )}
+                </Link>
+              </li>
 
-              {/* User Profile */}
+              {/* Perfil del usuario */}
               <li>
                 <Link
                   href="/my-profile"
@@ -90,7 +106,7 @@ const Header = ({ session }: { session: Session }) => {
                   </Avatar>
                   <div className="hidden md:block">
                     <p className="text-xs sm:text-sm font-medium text-gray-700 truncate max-w-16 sm:max-w-24">
-                      {session?.user?.name?.split(" ")[0] || "Utilizador"}
+                      {session?.user?.name?.split(" ")[0] || "Usuario"}
                     </p>
                   </div>
                 </Link>

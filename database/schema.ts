@@ -1,10 +1,10 @@
 import {
   varchar,
   uuid,
-  integer,
   text,
-  boolean,
   pgTable,
+  timestamp,
+  decimal,
 } from "drizzle-orm/pg-core";
 import { date } from "drizzle-orm/pg-core/columns/date";
 import { pgEnum } from "drizzle-orm/pg-core/columns/enum";
@@ -20,12 +20,12 @@ export const users = pgTable("users", {
   password: text().notNull(),
   role: ROLE_ENUM("role").default("Pending"),
 });
-
 export const Rooms = pgTable("Rooms", {
   id: uuid("id").notNull().primaryKey().defaultRandom().unique(),
   number: varchar("number", { length: 10 }).notNull().unique(),
   type: ROOM_TYPE_ENUM("type").notNull(),
   status: STATUS_ENUM("status").default("Free"),
+  company: varchar("company", { length: 100 }),
 
   // Informações do hóspede 1
   guest1Name: varchar("guest1_name", { length: 100 }),
@@ -36,4 +36,37 @@ export const Rooms = pgTable("Rooms", {
   guest2Name: varchar("guest2_name", { length: 100 }),
   guest2Phone: varchar("guest2_phone", { length: 20 }),
   guest2CheckinDate: date("guest2_checkin_date"),
+});
+
+export const RoomHistory = pgTable("room_history", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  roomId: uuid("room_id")
+    .notNull()
+    .references(() => Rooms.id),
+  roomNumber: text("room_number").notNull(),
+  companyName: text("company_name"),
+  // Dados do hóspede principal
+  guest1Name: text("guest1_name").notNull(),
+  guest1Phone: text("guest1_phone"),
+
+  // Dados do segundo hóspede (para quartos duplos)
+  guest2Name: text("guest2_name"),
+  guest2Phone: text("guest2_phone"),
+
+  // Datas e valores
+  checkinDate: timestamp("checkin_date").defaultNow().notNull(),
+  checkoutDate: timestamp("checkout_date"),
+
+  // Tipo do quarto na altura da reserva
+  roomType: text("room_type").notNull(), // "single" | "double"
+
+  // Observações adicionais
+  notes: text("notes"),
+
+  // Dados de auditoria
+  createdBy: uuid("created_by"), // ID do usuário que fez o check-in
+  updatedBy: uuid("updated_by"), // ID do usuário que fez o check-out
+
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });

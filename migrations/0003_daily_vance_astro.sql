@@ -1,0 +1,1 @@
+ALTER TABLE "Rooms" ADD COLUMN "company" varchar(100);

@@ -28,6 +28,7 @@ const Page = () => {
   const [guest1Phone, setGuest1Phone] = useState("");
   const [guest2Name, setGuest2Name] = useState("");
   const [guest2Phone, setGuest2Phone] = useState("");
+  const [company, setCompany] = useState(""); // NOVO CAMPO
 
   const [alert, setAlert] = useState<{
     type: "success" | "error";
@@ -115,6 +116,7 @@ const Page = () => {
         guest1Phone,
         guest2Name: room.type === "double" ? guest2Name : null,
         guest2Phone: room.type === "double" ? guest2Phone : null,
+        company: company || undefined, // <-- aqui
         status: "Ocupied" as RoomStatus,
       });
 
@@ -127,6 +129,7 @@ const Page = () => {
         setGuest1Phone("");
         setGuest2Name("");
         setGuest2Phone("");
+        setCompany(""); // limpar campo
         setAlert({
           type: "success",
           message: "¡Hóspede(s) adicionado(s) com sucesso!",
@@ -287,6 +290,11 @@ const Page = () => {
                 value={guest1Phone}
                 onChange={(e) => setGuest1Phone(e.target.value)}
               />
+              <Input
+                placeholder="Empresa (opcional)"
+                value={company}
+                onChange={(e) => setCompany(e.target.value)}
+              />
               {room.type === "double" && (
                 <>
                   <Input
@@ -313,7 +321,7 @@ const Page = () => {
         </div>
       )}
 
-      {/* HABITAÇÃO OCUPADA - APENAS ADMIN PODE FAZER CHECKOUT */}
+      {/* HABITAÇÃO OCUPADA */}
       {room.status === "Ocupied" && (
         <div className="space-y-3">
           <p className="text-gray-700">
@@ -327,6 +335,9 @@ const Page = () => {
             <p className="text-sm text-gray-600">
               Telefone: {room.guest1Phone}
             </p>
+          )}
+          {company && (
+            <p className="text-sm text-gray-600">Empresa: {company}</p>
           )}
           {room.type === "double" && room.guest2Phone && (
             <p className="text-sm text-gray-600">
@@ -349,7 +360,7 @@ const Page = () => {
         </div>
       )}
 
-      {/* HABITAÇÃO SUJA - TODOS PODEM MARCAR COMO LIMPA */}
+      {/* HABITAÇÃO SUJA */}
       {room.status === "Dirty" && (
         <div className="space-y-3">
           <p className="text-gray-700">
