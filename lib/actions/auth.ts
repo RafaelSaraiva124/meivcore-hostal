@@ -6,6 +6,13 @@ import { users } from "@/database/schema";
 import { eq } from "drizzle-orm";
 import { hash } from "bcryptjs";
 
+export interface AuthCredentials {
+  fullName: string;
+  email: string;
+  password: string;
+}
+
+// ==================== SIGN IN ====================
 export const signInWithCredentials = async (
   params: Pick<AuthCredentials, "email" | "password">,
 ) => {
@@ -17,43 +24,52 @@ export const signInWithCredentials = async (
       password,
       redirect: false,
     });
+
     if (result.error) {
       return { success: false, error: result.error };
     }
 
     return { success: true };
   } catch (error) {
-    console.log(error, "Signin error");
-    return { success: false, error: "signin error" };
+    console.error("Signin error:", error);
+    return { success: false, error: "Erro ao iniciar sessão" };
   }
 };
 
+// ==================== SIGN UP ====================
 export const signUp = async (params: AuthCredentials) => {
   const { fullName, email, password } = params;
 
+  // Verifica se já existe utilizador
   const existingUser = await db
     .select()
     .from(users)
     .where(eq(users.email, email))
     .limit(1);
+
   if (existingUser.length > 0) {
     return { success: false, message: "O utilizador já existe" };
   }
 
   const hashedPassword = await hash(password, 10);
+
   try {
     await db.insert(users).values({
       fullName,
       email,
       password: hashedPassword,
     });
+
+    // Iniciar sessão automaticamente
     await signInWithCredentials({ email, password });
     return { success: true };
   } catch (error) {
-    console.log(error, "signup error");
+    console.error("Signup error:", error);
     return { success: false, error: "Erro ao criar utilizador" };
   }
 };
+
+// ==================== REDIRECT POR ROLE ====================
 export const getRoomRedirect = async (roomId: string, session?: any) => {
   if (!roomId || roomId.trim() === "") {
     return { success: false, error: "Room ID inválido" };
@@ -96,6 +112,8 @@ export const getRoomRedirect = async (roomId: string, session?: any) => {
     };
   }
 };
+
+// ==================== VERIFICAÇÃO DE PERMISSÕES ====================
 export async function requireAdmin(userId: string, userRole?: string) {
   try {
     let role = userRole;
@@ -130,6 +148,7 @@ export async function requireAdminFromSession(session: any) {
   if (!session?.user?.role) {
     return { allowed: false, error: "Sessão inválida" };
   }
+
   const isAdmin = String(session.user.role).toLowerCase() === "admin";
   return {
     allowed: isAdmin,

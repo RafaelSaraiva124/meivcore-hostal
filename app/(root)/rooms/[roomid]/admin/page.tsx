@@ -2,9 +2,10 @@
 
 import React, { useEffect, useState, useCallback } from "react";
 import { useParams } from "next/navigation";
+import { useSession } from "next-auth/react";
 import {
   getRoomById,
-  updateRoom,
+  checkInRoom,
   checkoutRoom,
   updateRoomStatus,
 } from "@/lib/actions/rooms";
@@ -35,10 +36,11 @@ const INITIAL_FORM_DATA: FormData = {
   guest2Name: "",
   guest2Phone: "",
   company: "",
-  checkinDate: "",
+  checkinDate: new Date().toISOString().split("T")[0], // data atual inicial
 };
 
 export default function AdminRoomPage() {
+  const { data: session } = useSession();
   const { roomid } = useParams();
   const [room, setRoom] = useState<Room | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -59,20 +61,11 @@ export default function AdminRoomPage() {
 
   const validateFormData = (): { isValid: boolean; error?: string } => {
     if (!formData.guest1Name.trim())
-      return {
-        isValid: false,
-        error: "El nombre del huésped 1 es obligatorio",
-      };
+      return { isValid: false, error: "Nombre del huésped 1 obligatorio" };
     if (formData.guest1Phone && !validatePhone(formData.guest1Phone))
-      return {
-        isValid: false,
-        error: "Formato de teléfono inválido para el huésped 1",
-      };
+      return { isValid: false, error: "Teléfono huésped 1 inválido" };
     if (formData.guest2Phone && !validatePhone(formData.guest2Phone))
-      return {
-        isValid: false,
-        error: "Formato de teléfono inválido para el huésped 2",
-      };
+      return { isValid: false, error: "Teléfono huésped 2 inválido" };
     return { isValid: true };
   };
 
@@ -89,7 +82,7 @@ export default function AdminRoomPage() {
       const roomId = Array.isArray(roomid) ? roomid[0] : roomid;
       if (!roomId) {
         setIsLoading(false);
-        showAlert("error", "ID de la habitación no proporcionado");
+        showAlert("error", "ID de habitación no proporcionado");
         return;
       }
       try {
@@ -99,12 +92,10 @@ export default function AdminRoomPage() {
             ...result.data,
             status: normalizeRoomStatus(result.data.status),
           });
-        } else {
-          showAlert("error", result.error || "Habitación no encontrada");
-        }
+        } else showAlert("error", result.error || "Habitación no encontrada");
       } catch (e) {
         console.error(e);
-        showAlert("error", "Error al cargar los datos de la habitación");
+        showAlert("error", "Error al cargar datos de la habitación");
       } finally {
         setIsLoading(false);
       }
@@ -119,32 +110,28 @@ export default function AdminRoomPage() {
 
   const handleAddGuest = async () => {
     if (!room) return showAlert("error", "Datos de la habitación no cargados");
-
-    const today = new Date();
-    const formattedToday = today.toISOString().split("T")[0];
+    if (!session?.user?.id) return showAlert("error", "Usuario no autenticado");
 
     const val = validateFormData();
     if (!val.isValid) return showAlert("error", val.error!);
 
     setIsSubmitting(true);
     try {
-      const updateData = {
-        id: room.id,
+      const result = await checkInRoom({
+        roomId: room.id,
         guest1Name: formData.guest1Name.trim(),
-        guest1Phone: formData.guest1Phone,
-        guest2Name: room.type === "double" ? formData.guest2Name || null : null,
+        guest1Phone: formData.guest1Phone || undefined,
+        guest2Name:
+          room.type === "double" ? formData.guest2Name || undefined : undefined,
         guest2Phone:
-          room.type === "double" ? formData.guest2Phone || null : null,
+          room.type === "double"
+            ? formData.guest2Phone || undefined
+            : undefined,
         company: formData.company || undefined,
-        status: "Occupied" as RoomStatus,
+        checkinDate: formData.checkinDate || undefined,
+        userId: session.user.id,
+      });
 
-        // ✅ Usa data escolhida ou a data de hoje
-        guest1CheckinDate: formData.checkinDate
-          ? new Date(formData.checkinDate).toISOString().split("T")[0] // normaliza input
-          : formattedToday,
-      };
-
-      const result = await updateRoom(updateData);
       if (result.success && result.data) {
         setRoom({
           ...result.data,
@@ -152,9 +139,7 @@ export default function AdminRoomPage() {
         });
         resetForm();
         showAlert("success", "¡Check-in realizado con éxito!");
-      } else {
-        showAlert("error", result.error || "Error al realizar el check-in");
-      }
+      } else showAlert("error", result.error || "Error al realizar check-in");
     } catch (e) {
       console.error(e);
       showAlert("error", "Error inesperado al realizar check-in");
@@ -167,7 +152,7 @@ export default function AdminRoomPage() {
     if (!room) return showAlert("error", "Datos de la habitación no cargados");
     if (
       !window.confirm(
-        `¿Está seguro de realizar el checkout de la habitación ${room.number}?`,
+        `¿Seguro de realizar checkout de habitación ${room.number}?`,
       )
     )
       return;
@@ -175,13 +160,12 @@ export default function AdminRoomPage() {
     setIsSubmitting(true);
     try {
       const result = await checkoutRoom(room.id);
-      if (result.success && result.data) {
+      if (result.success && result.data)
         setRoom({
           ...result.data,
           status: normalizeRoomStatus(result.data.status),
         });
-        showAlert("success", "¡Checkout realizado con éxito!");
-      } else showAlert("error", result.error || "Error al realizar checkout");
+      else showAlert("error", result.error || "Error al realizar checkout");
     } catch (e) {
       console.error(e);
       showAlert("error", "Error inesperado al realizar checkout");
@@ -195,13 +179,12 @@ export default function AdminRoomPage() {
     setIsSubmitting(true);
     try {
       const result = await updateRoomStatus(room.id, "Free");
-      if (result.success && result.data) {
+      if (result.success && result.data)
         setRoom({
           ...result.data,
           status: normalizeRoomStatus(result.data.status),
         });
-        showAlert("success", "¡Habitación marcada como limpia!");
-      } else showAlert("error", result.error || "Error al actualizar estado");
+      else showAlert("error", result.error || "Error al actualizar estado");
     } catch (e) {
       console.error(e);
       showAlert("error", "Error inesperado al actualizar estado");
@@ -210,7 +193,6 @@ export default function AdminRoomPage() {
     }
   };
 
-  // ======== Render ========
   if (isLoading) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
@@ -220,10 +202,11 @@ export default function AdminRoomPage() {
     );
   }
 
-  if (!room)
+  if (!room) {
     return (
       <div className="text-center text-red-600">Habitación no encontrada</div>
     );
+  }
 
   return (
     <div className="max-w-xl mx-auto p-6 space-y-6 bg-white shadow-md rounded-lg">
@@ -239,7 +222,13 @@ export default function AdminRoomPage() {
           <span className="text-gray-600">
             Estado:{" "}
             <span
-              className={`ml-1 font-semibold px-2 py-1 rounded text-sm ${room.status === "Free" ? "bg-green-100 text-green-700" : room.status === "Occupied" ? "bg-red-100 text-red-700" : "bg-yellow-100 text-yellow-700"}`}
+              className={`ml-1 font-semibold px-2 py-1 rounded text-sm ${
+                room.status === "Free"
+                  ? "bg-green-100 text-green-700"
+                  : room.status === "Occupied"
+                    ? "bg-red-100 text-red-700"
+                    : "bg-yellow-100 text-yellow-700"
+              }`}
             >
               {room.status === "Free"
                 ? "Libre"
@@ -253,7 +242,11 @@ export default function AdminRoomPage() {
 
       {alert && (
         <Alert
-          className={`flex items-center gap-2 p-3 rounded border-l-4 ${alert.type === "success" ? "border-green-500 bg-green-50" : "border-red-500 bg-red-50"}`}
+          className={`flex items-center gap-2 p-3 rounded border-l-4 ${
+            alert.type === "success"
+              ? "border-green-500 bg-green-50"
+              : "border-red-500 bg-red-50"
+          }`}
         >
           {alert.type === "success" ? (
             <CheckCircle className="h-5 w-5 text-green-600 flex-shrink-0" />
@@ -270,7 +263,7 @@ export default function AdminRoomPage() {
         </Alert>
       )}
 
-      {/* Quando quarto está livre */}
+      {/* Quarto Livre */}
       {room.status === "Free" && (
         <div className="space-y-4">
           <div className="bg-green-50 p-4 rounded-lg border border-green-200">
@@ -281,7 +274,6 @@ export default function AdminRoomPage() {
 
           <div className="space-y-3">
             <h3 className="font-semibold text-gray-800">Datos del Check-in:</h3>
-
             <div className="grid gap-3">
               <Input
                 placeholder="Nombre del Huésped 1 *"
@@ -308,9 +300,7 @@ export default function AdminRoomPage() {
               <Input
                 type="date"
                 placeholder="Fecha de Entrada"
-                value={
-                  formData.checkinDate || new Date().toISOString().split("T")[0]
-                }
+                value={formData.checkinDate}
                 onChange={(e) =>
                   handleInputChange("checkinDate", e.target.value)
                 }
@@ -356,7 +346,7 @@ export default function AdminRoomPage() {
         </div>
       )}
 
-      {/* Quando quarto está ocupado */}
+      {/* Quarto Ocupado */}
       {room.status === "Occupied" && (
         <div className="space-y-4">
           <div className="bg-red-50 p-4 rounded-lg border border-red-200">
@@ -425,7 +415,7 @@ export default function AdminRoomPage() {
         </div>
       )}
 
-      {/* Quando quarto está sujo */}
+      {/* Quarto Sujo */}
       {room.status === "Dirty" && (
         <div className="space-y-4">
           <div className="bg-yellow-50 p-4 rounded-lg border border-yellow-200">
