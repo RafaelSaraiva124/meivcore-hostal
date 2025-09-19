@@ -93,6 +93,11 @@ const AuthForm = <T extends FieldValues>({
                   </FormLabel>
                   <FormControl>
                     <Input
+                      type={
+                        ["password", "confirmPassword"].includes(field.name)
+                          ? "password"
+                          : "text"
+                      }
                       placeholder={`Introduce tu ${FIELD_NAMES[field.name as keyof typeof FIELD_NAMES]}`}
                       {...field}
                       className="border rounded-md px-3 py-2 w-full focus:ring-2 focus:ring-blue-500"

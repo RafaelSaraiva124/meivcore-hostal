@@ -2,17 +2,18 @@
 
 import React, { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import { useSession } from "next-auth/react";
 import { getFilteredRooms } from "@/lib/actions/rooms";
 import { Room } from "@/lib/types";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { CheckCircle, AlertCircle } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 
-const getStatusColor = (status: string) => {
+const getStatusColor = (status: string | null | undefined) => {
   switch (status) {
     case "Free":
       return "bg-green-100 text-green-800 border-green-200";
-    case "Ocupied":
+    case "Occupied":
       return "bg-red-100 text-red-800 border-red-200";
     case "Dirty":
       return "bg-yellow-100 text-yellow-800 border-yellow-200";
@@ -23,14 +24,13 @@ const getStatusColor = (status: string) => {
 
 const RoomListPage = () => {
   const router = useRouter();
+  const { data: session } = useSession();
   const [rooms, setRooms] = useState<Room[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [alert, setAlert] = useState<{
     type: "success" | "error";
     message: string;
   } | null>(null);
-
-  // Filtros
   const [statusFilter, setStatusFilter] = useState<Room["status"] | "All">(
     "All",
   );
@@ -42,9 +42,7 @@ const RoomListPage = () => {
       const filters: {
         status?: Room["status"];
         sortByNumber?: "asc" | "desc";
-      } = {
-        sortByNumber: sortOrder,
-      };
+      } = { sortByNumber: sortOrder };
       if (statusFilter !== "All") filters.status = statusFilter;
 
       const result = await getFilteredRooms(filters);
@@ -52,12 +50,12 @@ const RoomListPage = () => {
       else
         setAlert({
           type: "error",
-          message: result.error || "Error al cargar habitaciones",
+          message: result.error || "Erro ao carregar quartos",
         });
     } catch {
       setAlert({
         type: "error",
-        message: "Error inesperado al cargar habitaciones",
+        message: "Erro inesperado ao carregar quartos",
       });
     } finally {
       setIsLoading(false);
@@ -68,32 +66,51 @@ const RoomListPage = () => {
     loadRooms();
   }, [statusFilter, sortOrder]);
 
-  const handleRoomClick = (roomId: string) => {
-    router.push(`/rooms/${roomId}`);
+  const handleRoomClick = async (roomId: string) => {
+    if (!roomId) return;
+    try {
+      const res = await fetch(`/api/room-redirect?roomId=${roomId}`);
+      const data = await res.json();
+      if (data.success && data.redirectUrl) {
+        router.push(data.redirectUrl);
+      } else {
+        setAlert({
+          type: "error",
+          message: data.error || "Não foi possível redirecionar",
+        });
+      }
+    } catch {
+      setAlert({
+        type: "error",
+        message: "Erro de rede ao redirecionar",
+      });
+    }
   };
 
   if (isLoading)
-    return <p className="text-center mt-6">Cargando habitaciones...</p>;
+    return <p className="text-center mt-6">Carregando quartos...</p>;
 
   return (
     <div className="max-w-7xl mx-auto p-4 sm:p-6">
       <h1 className="text-xl sm:text-2xl font-bold mb-4 text-center sm:text-left">
-        Lista de Habitaciones
+        Lista de Quartos
       </h1>
 
-      {/* Filtros responsivos */}
+      {/* Filtros */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:gap-4 gap-2 mb-4">
         <div className="flex items-center gap-1">
           <label className="font-medium text-xs sm:text-sm">Estado:</label>
           <select
-            value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value as any)}
+            value={statusFilter || "All"}
+            onChange={(e) =>
+              setStatusFilter(e.target.value as Room["status"] | "All")
+            }
             className="border rounded px-2 py-1 text-xs sm:text-sm"
           >
             <option value="All">Todos</option>
-            <option value="Free">Libre</option>
-            <option value="Ocupied">Ocupada</option>
-            <option value="Dirty">Sucia</option>
+            <option value="Free">Livre</option>
+            <option value="Occupied">Ocupado</option>
+            <option value="Dirty">Sujo</option>
           </select>
         </div>
 
@@ -116,7 +133,7 @@ const RoomListPage = () => {
             setSortOrder("asc");
           }}
         >
-          Limpiar filtros
+          Limpar filtros
         </button>
       </div>
 
@@ -140,9 +157,9 @@ const RoomListPage = () => {
         </Alert>
       )}
 
-      {/* Tabla responsiva */}
+      {/* Tabela de quartos */}
       {rooms.length === 0 ? (
-        <p className="text-center mt-4">No se encontraron habitaciones.</p>
+        <p className="text-center mt-4">Nenhum quarto encontrado.</p>
       ) : (
         <div className="overflow-x-auto">
           <table className="w-full border-collapse border border-gray-200 text-xs sm:text-sm">
@@ -150,31 +167,41 @@ const RoomListPage = () => {
               <tr className="bg-gray-50">
                 <th className="border border-gray-200 p-2 text-left">Nº</th>
                 <th className="border border-gray-200 p-2 text-left">Tipo</th>
-                <th className="border border-gray-200 p-2 text-left">Estado</th>
+                <th className="border border-gray-200 p-2 text-left">Status</th>
               </tr>
             </thead>
             <tbody>
-              {rooms.map((room) => (
-                <tr
-                  key={room.id}
-                  className="hover:bg-gray-50 cursor-pointer"
-                  onClick={() => handleRoomClick(room.id)}
-                >
-                  <td className="border border-gray-200 p-2">{room.number}</td>
-                  <td className="border border-gray-200 p-2 capitalize">
-                    {room.type === "single" ? "Individual" : "Doble"}
-                  </td>
-                  <td className="border border-gray-200 p-2">
-                    <Badge className={getStatusColor(room.status)}>
-                      {room.status === "Free"
-                        ? "Libre"
-                        : room.status === "Ocupied"
-                          ? "Ocupada"
-                          : "Sucia"}
-                    </Badge>
-                  </td>
-                </tr>
-              ))}
+              {rooms.map((room) => {
+                const safeRoom = {
+                  id: room.id || "",
+                  number: room.number || "N/A",
+                  type: room.type || "single",
+                  status: room.status || "Free",
+                };
+                return (
+                  <tr
+                    key={safeRoom.id}
+                    className="hover:bg-gray-50 cursor-pointer"
+                    onClick={() => handleRoomClick(safeRoom.id)}
+                  >
+                    <td className="border border-gray-200 p-2">
+                      {safeRoom.number}
+                    </td>
+                    <td className="border border-gray-200 p-2 capitalize">
+                      {safeRoom.type === "single" ? "Individual" : "Duplo"}
+                    </td>
+                    <td className="border border-gray-200 p-2">
+                      <Badge className={getStatusColor(safeRoom.status)}>
+                        {safeRoom.status === "Free"
+                          ? "Livre"
+                          : safeRoom.status === "Occupied"
+                            ? "Ocupado"
+                            : "Sujo"}
+                      </Badge>
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>

@@ -2,8 +2,12 @@
 
 import { db } from "@/database/drizzle";
 import { Rooms, RoomHistory } from "@/database/schema";
-import { eq, desc, sql, and } from "drizzle-orm";
+import { eq, desc, sql, and, isNull } from "drizzle-orm";
 import { Room } from "@/lib/types";
+
+// Cache para dados que não mudam frequentemente
+let roomsCache: { data: any; timestamp: number } | null = null;
+const CACHE_DURATION = 5000; // 5 segundos
 
 // ==================== ROOMS ====================
 
@@ -31,18 +35,26 @@ export const createRoom = async (roomData: {
       return { success: false, error: "Já existe um quarto com esse número" };
     }
 
-    const record = await db.insert(Rooms).values(roomData).returning();
+    const insertData = {
+      ...roomData,
+      status: roomData.status || ("Free" as const),
+    };
 
-    return { success: true, data: JSON.parse(JSON.stringify(record)) };
+    const record = await db.insert(Rooms).values(insertData).returning();
+
+    // Invalidar cache
+    roomsCache = null;
+
+    return { success: true, data: JSON.parse(JSON.stringify(record[0])) };
   } catch (error) {
-    console.log(error);
+    console.error("Erro ao criar quarto:", error);
     return { success: false, error: "Erro ao criar quarto" };
   }
 };
 
 // Atualizar quarto
 export const updateRoom = async (
-  roomData: Partial<Room> & { id: string; company?: string },
+  roomData: Partial<Room> & { id: string },
   userId?: string,
 ) => {
   try {
@@ -56,31 +68,37 @@ export const updateRoom = async (
       return { success: false, error: "Quarto não encontrado" };
     }
 
-    // Função auxiliar para formatar a data no padrão YYYY-MM-DD
     const formatDate = (d: Date) => d.toISOString().split("T")[0];
+    const updateData: any = { ...roomData };
+
+    // Remover status null/undefined
+    if (updateData.status === null || updateData.status === undefined) {
+      delete updateData.status;
+    }
+
+    if (roomData.status === "Occupied" && !currentRoom[0].guest1CheckinDate) {
+      updateData.guest1CheckinDate = formatDate(new Date());
+      if (roomData.guest2Name && !currentRoom[0].guest2CheckinDate) {
+        updateData.guest2CheckinDate = formatDate(new Date());
+      }
+    }
 
     const updated = await db
       .update(Rooms)
-      .set({
-        ...roomData,
-        guest1CheckinDate:
-          roomData.status === "Ocupied"
-            ? formatDate(new Date())
-            : roomData.guest1CheckinDate,
-        guest2CheckinDate:
-          roomData.status === "Ocupied" && roomData.guest2Name
-            ? formatDate(new Date())
-            : roomData.guest2CheckinDate,
-      })
+      .set(updateData)
       .where(eq(Rooms.id, roomData.id))
       .returning();
 
-    // Se está fazendo check-in (mudando para Ocupied), criar registro no histórico
+    // Invalidar cache
+    roomsCache = null;
+
+    // Gerenciar histórico
     if (
-      roomData.status === "Ocupied" &&
+      roomData.status === "Occupied" &&
       roomData.guest1Name &&
-      currentRoom[0].status !== "Ocupied"
+      currentRoom[0].status !== "Occupied"
     ) {
+      // Novo check-in - criar histórico
       await db.insert(RoomHistory).values({
         roomId: roomData.id,
         roomNumber: updated[0].number,
@@ -93,22 +111,56 @@ export const updateRoom = async (
         createdBy: userId || null,
         checkinDate: new Date(),
       });
+    } else if (
+      roomData.guest2Name &&
+      currentRoom[0].status === "Occupied" &&
+      !currentRoom[0].guest2Name
+    ) {
+      // Adicionar segundo hóspede
+      await db
+        .update(RoomHistory)
+        .set({
+          guest2Name: roomData.guest2Name,
+          guest2Phone: roomData.guest2Phone || null,
+          updatedBy: userId || null,
+          updatedAt: new Date(),
+        })
+        .where(
+          and(
+            eq(RoomHistory.roomId, roomData.id),
+            isNull(RoomHistory.checkoutDate),
+          ),
+        );
     }
 
     return { success: true, data: updated[0] };
   } catch (error) {
-    console.log(error);
+    console.error("Erro ao atualizar quarto:", error);
     return { success: false, error: "Erro ao atualizar quarto" };
   }
 };
 
-// Obter todos os quartos
+// Obter todos os quartos com cache
 export const getRooms = async () => {
   try {
-    const rooms = await db.select().from(Rooms).orderBy(desc(Rooms.number));
-    return { success: true, data: JSON.parse(JSON.stringify(rooms)) };
+    // Verificar cache
+    if (roomsCache && Date.now() - roomsCache.timestamp < CACHE_DURATION) {
+      return { success: true, data: roomsCache.data };
+    }
+
+    const rooms = await db
+      .select()
+      .from(Rooms)
+      .orderBy(sql`CAST(${Rooms.number} AS INTEGER) DESC`);
+
+    const data = JSON.parse(JSON.stringify(rooms));
+
+    // Atualizar cache
+    roomsCache = { data, timestamp: Date.now() };
+
+    return { success: true, data };
   } catch (error) {
-    console.log(error);
+    console.error("Erro ao buscar quartos:", error);
     return { success: false, error: "Erro ao buscar quartos" };
   }
 };
@@ -116,24 +168,28 @@ export const getRooms = async () => {
 // Obter estatísticas dos quartos
 export const getRoomStats = async () => {
   try {
-    const rooms = await db.select().from(Rooms);
-    const stats = {
-      total: rooms.length,
-      free: rooms.filter((r) => r.status === "Free").length,
-      occupied: rooms.filter((r) => r.status === "Ocupied").length,
-      dirty: rooms.filter((r) => r.status === "Dirty").length,
-      occupancyRate:
-        rooms.length > 0
-          ? Math.round(
-              (rooms.filter((r) => r.status === "Ocupied").length /
-                rooms.length) *
-                100,
-            )
-          : 0,
+    const stats = await db
+      .select({
+        total: sql<number>`COUNT(*)`,
+        free: sql<number>`COUNT(*) FILTER (WHERE status = 'Free')`,
+        occupied: sql<number>`COUNT(*) FILTER (WHERE status = 'Occupied')`,
+        dirty: sql<number>`COUNT(*) FILTER (WHERE status = 'Dirty')`,
+      })
+      .from(Rooms);
+
+    const result = stats[0];
+    const occupancyRate =
+      result.total > 0 ? Math.round((result.occupied / result.total) * 100) : 0;
+
+    return {
+      success: true,
+      data: {
+        ...result,
+        occupancyRate,
+      },
     };
-    return { success: true, data: stats };
   } catch (error) {
-    console.log(error);
+    console.error("Erro ao buscar estatísticas:", error);
     return { success: false, error: "Erro ao buscar estatísticas" };
   }
 };
@@ -144,22 +200,32 @@ export const updateRoomStatus = async (
   status: Room["status"],
 ) => {
   try {
+    const validStatuses = ["Free", "Occupied", "Dirty"] as const;
+    if (!validStatuses.includes(status as any)) {
+      return { success: false, error: "Status inválido" };
+    }
+
     const [updatedRoom] = await db
       .update(Rooms)
       .set({ status })
       .where(eq(Rooms.id, roomId))
       .returning();
 
-    if (!updatedRoom) return { success: false, error: "Quarto não encontrado" };
+    if (!updatedRoom) {
+      return { success: false, error: "Quarto não encontrado" };
+    }
+
+    // Invalidar cache
+    roomsCache = null;
 
     return { success: true, data: JSON.parse(JSON.stringify(updatedRoom)) };
   } catch (error) {
-    console.log(error);
+    console.error("Erro ao atualizar status:", error);
     return { success: false, error: "Erro ao atualizar status" };
   }
 };
 
-// Checkout do quarto
+// Fazer checkout
 export const checkoutRoom = async (roomId: string, userId?: string) => {
   try {
     const currentRoom = await db
@@ -168,8 +234,9 @@ export const checkoutRoom = async (roomId: string, userId?: string) => {
       .where(eq(Rooms.id, roomId))
       .limit(1);
 
-    if (!currentRoom[0])
+    if (!currentRoom[0]) {
       return { success: false, error: "Quarto não encontrado" };
+    }
 
     if (currentRoom[0].guest1Name) {
       await db
@@ -180,18 +247,14 @@ export const checkoutRoom = async (roomId: string, userId?: string) => {
           updatedAt: new Date(),
         })
         .where(
-          and(
-            eq(RoomHistory.roomId, roomId),
-            eq(RoomHistory.guest1Name, currentRoom[0].guest1Name),
-            sql`${RoomHistory.checkoutDate} IS NULL`,
-          ),
+          and(eq(RoomHistory.roomId, roomId), isNull(RoomHistory.checkoutDate)),
         );
     }
 
     const [updatedRoom] = await db
       .update(Rooms)
       .set({
-        status: "Dirty",
+        status: "Dirty" as const,
         guest1Name: null,
         guest1Phone: null,
         guest1CheckinDate: null,
@@ -203,14 +266,15 @@ export const checkoutRoom = async (roomId: string, userId?: string) => {
       .where(eq(Rooms.id, roomId))
       .returning();
 
+    // Invalidar cache
+    roomsCache = null;
+
     return { success: true, data: JSON.parse(JSON.stringify(updatedRoom)) };
   } catch (error) {
-    console.log(error);
+    console.error("Erro ao fazer checkout:", error);
     return { success: false, error: "Erro ao fazer checkout" };
   }
 };
-
-// Deletar quarto
 export const deleteRoom = async (roomId: string) => {
   try {
     const [deletedRoom] = await db
@@ -225,7 +289,6 @@ export const deleteRoom = async (roomId: string) => {
   }
 };
 
-// Obter quarto por ID
 export const getRoomById = async (roomId: string) => {
   try {
     const result = await db
@@ -241,16 +304,21 @@ export const getRoomById = async (roomId: string) => {
   }
 };
 
-// Filtrar quartos
 export const getFilteredRooms = async (filters?: {
-  status?: Room["status"];
+  status?: Room["status"] | null; // Allow null in the parameter
   sortByNumber?: "asc" | "desc";
 }) => {
   try {
+    // Only apply status filter if it's a valid non-null status
+    const statusCondition =
+      filters?.status && filters.status !== null
+        ? eq(Rooms.status, filters.status)
+        : undefined;
+
     const rooms = await db
       .select()
       .from(Rooms)
-      .where(filters?.status ? eq(Rooms.status, filters.status) : undefined)
+      .where(statusCondition)
       .orderBy(
         filters?.sortByNumber === "asc"
           ? sql`${Rooms.number} ASC`
@@ -266,7 +334,6 @@ export const getFilteredRooms = async (filters?: {
 
 // ==================== ROOM HISTORY ====================
 
-// Obter histórico de quartos
 export const getRoomHistory = async (filters?: {
   roomId?: string;
   startDate?: string;
@@ -311,45 +378,6 @@ export const getRoomHistory = async (filters?: {
   }
 };
 
-// Obter histórico por quarto
-export const getRoomHistoryByRoomId = async (roomId: string) => {
-  try {
-    const history = await db
-      .select()
-      .from(RoomHistory)
-      .where(eq(RoomHistory.roomId, roomId))
-      .orderBy(desc(RoomHistory.checkinDate));
-    return { success: true, data: JSON.parse(JSON.stringify(history)) };
-  } catch (error) {
-    console.log(error);
-    return { success: false, error: "Erro ao buscar histórico do quarto" };
-  }
-};
-
-// Pesquisar hóspedes (incluindo empresa)
-export const searchGuests = async (searchTerm: string) => {
-  try {
-    const guests = await db
-      .select()
-      .from(RoomHistory)
-      .where(
-        sql`LOWER(${RoomHistory.guest1Name}) LIKE LOWER(${"%" + searchTerm + "%"})
-        OR LOWER(${RoomHistory.guest2Name}) LIKE LOWER(${"%" + searchTerm + "%"})
-        OR LOWER(${RoomHistory.companyName}) LIKE LOWER(${"%" + searchTerm + "%"})
-        OR ${RoomHistory.guest1Phone} LIKE ${"%" + searchTerm + "%"}
-        OR ${RoomHistory.guest2Phone} LIKE ${"%" + searchTerm + "%"}`,
-      )
-      .orderBy(desc(RoomHistory.checkinDate))
-      .limit(50);
-
-    return { success: true, data: JSON.parse(JSON.stringify(guests)) };
-  } catch (error) {
-    console.log(error);
-    return { success: false, error: "Erro ao pesquisar hóspedes" };
-  }
-};
-
-// Estatísticas do histórico
 export const getHistoryStats = async (filters?: {
   startDate?: string;
   endDate?: string;
@@ -383,72 +411,5 @@ export const getHistoryStats = async (filters?: {
       success: false,
       error: "Erro ao buscar estatísticas do histórico",
     };
-  }
-};
-
-// Hóspedes atuais (sem checkout)
-export const getCurrentGuests = async () => {
-  try {
-    const currentGuests = await db
-      .select()
-      .from(RoomHistory)
-      .where(sql`${RoomHistory.checkoutDate} IS NULL`)
-      .orderBy(desc(RoomHistory.checkinDate));
-
-    return { success: true, data: JSON.parse(JSON.stringify(currentGuests)) };
-  } catch (error) {
-    console.log(error);
-    return { success: false, error: "Erro ao buscar hóspedes atuais" };
-  }
-};
-
-// Empresas mais frequentes
-export const getTopCompanies = async (filters?: {
-  startDate?: string;
-  endDate?: string;
-  limit?: number;
-}) => {
-  try {
-    let whereConditions = [sql`${RoomHistory.companyName} IS NOT NULL`];
-    if (filters?.startDate)
-      whereConditions.push(
-        sql`${RoomHistory.checkinDate} >= ${filters.startDate}`,
-      );
-    if (filters?.endDate)
-      whereConditions.push(
-        sql`${RoomHistory.checkinDate} <= ${filters.endDate}`,
-      );
-
-    const companies = await db
-      .select({
-        companyName: RoomHistory.companyName,
-        count: sql<number>`COUNT(*)`.as("count"),
-      })
-      .from(RoomHistory)
-      .where(and(...whereConditions))
-      .groupBy(RoomHistory.companyName)
-      .orderBy(sql`COUNT(*) DESC`)
-      .limit(filters?.limit || 10);
-
-    return { success: true, data: JSON.parse(JSON.stringify(companies)) };
-  } catch (error) {
-    console.log(error);
-    return { success: false, error: "Erro ao buscar empresas mais frequentes" };
-  }
-};
-
-// Histórico por empresa
-export const getHistoryByCompany = async (companyName: string) => {
-  try {
-    const history = await db
-      .select()
-      .from(RoomHistory)
-      .where(eq(RoomHistory.companyName, companyName))
-      .orderBy(desc(RoomHistory.checkinDate));
-
-    return { success: true, data: JSON.parse(JSON.stringify(history)) };
-  } catch (error) {
-    console.log(error);
-    return { success: false, error: "Erro ao buscar histórico da empresa" };
   }
 };

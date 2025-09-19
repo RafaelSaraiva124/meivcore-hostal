@@ -35,7 +35,8 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
           id: user[0].id.toString(),
           email: user[0].email,
           name: user[0].fullName,
-        } as User;
+          role: user[0].role, // ✅ INCLUIR o role
+        } as User & { role: string };
       },
     }),
   ],
@@ -47,6 +48,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
       if (user) {
         token.id = user.id;
         token.name = user.name;
+        token.role = (user as any).role; // ✅ ADICIONAR o role ao token
       }
 
       return token;
@@ -55,6 +57,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
       if (session.user) {
         session.user.id = token.id as string;
         session.user.name = token.name as string;
+        (session.user as any).role = token.role as string; // ✅ ADICIONAR o role à sessão
       }
 
       return session;

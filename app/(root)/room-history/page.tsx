@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useMemo, useCallback } from "react";
 import { getRoomHistory, getHistoryStats } from "@/lib/actions/rooms";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -26,7 +26,7 @@ interface HistoryRecord {
   guest1Phone?: string;
   guest2Name?: string;
   guest2Phone?: string;
-  checkinDate: string;
+  guest1CheckinDate: string;
   checkoutDate?: string;
   roomType: string;
 }
@@ -47,78 +47,18 @@ const Page = () => {
     new Date().getFullYear(),
   );
   const [expandedMonths, setExpandedMonths] = useState<Set<string>>(new Set());
-  const [stats, setStats] = useState({
-    totalBookings: 0,
-    completedStays: 0,
-    currentGuests: 0,
-  });
+
   const [alert, setAlert] = useState<{
     type: "success" | "error";
     message: string;
   } | null>(null);
 
-  useEffect(() => {
-    loadHistoryData();
-    loadStats();
-  }, [selectedYear]);
-
-  const loadHistoryData = async () => {
-    setIsLoading(true);
-    try {
-      const startDate = `${selectedYear}-01-01`;
-      const endDate = `${selectedYear}-12-31`;
-      const result = await getRoomHistory({ startDate, endDate, limit: 1000 });
-
-      if (result.success && result.data) {
-        const normalizedData = result.data.map((record: any) => ({
-          ...record,
-          guest1Phone: record.guest1Phone ?? undefined,
-          guest2Name: record.guest2Name ?? undefined,
-          guest2Phone: record.guest2Phone ?? undefined,
-          checkoutDate: record.checkoutDate ?? undefined,
-          companyName: record.companyName ?? undefined,
-        }));
-
-        setHistoryData(normalizedData);
-        organizeByMonth(normalizedData);
-      } else {
-        setAlert({
-          type: "error",
-          message: result.error || "Error al cargar el historial",
-        });
-      }
-    } catch {
-      setAlert({
-        type: "error",
-        message: "Error inesperado al cargar los datos",
-      });
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const loadStats = async () => {
-    try {
-      const startDate = `${selectedYear}-01-01`;
-      const endDate = `${selectedYear}-12-31`;
-      const result = await getHistoryStats({ startDate, endDate });
-
-      if (result.success && result.data) {
-        setStats({
-          totalBookings: result.data.totalBookings,
-          completedStays: result.data.completedStays,
-          currentGuests: result.data.currentGuests,
-        });
-      }
-    } catch (error) {
-      console.error("Error al cargar estadísticas:", error);
-    }
-  };
-
-  const organizeByMonth = (data: HistoryRecord[]) => {
+  // Função para organizar dados por mês - movida para cima
+  const organizeByMonth = useCallback((data: HistoryRecord[]) => {
     const monthsMap = new Map<string, MonthlyData>();
+
     data.forEach((record) => {
-      const date = new Date(record.checkinDate);
+      const date = new Date(record.guest1CheckinDate);
       const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
       const monthName = date.toLocaleDateString("es-ES", {
         month: "long",
@@ -139,105 +79,206 @@ const Page = () => {
       monthData.totalGuests += record.guest2Name ? 2 : 1;
     });
 
-    setMonthlyData(
-      Array.from(monthsMap.values()).sort(
-        (a, b) => b.year - a.year || a.month.localeCompare(b.month),
-      ),
-    );
-  };
+    const sortedMonthlyData = Array.from(monthsMap.values()).sort((a, b) => {
+      // Ordenar por ano descendente e depois por mês
+      if (b.year !== a.year) return b.year - a.year;
+      // Extrair o número do mês do nome para ordenação correta
+      const monthA = new Date(Date.parse(a.month + " 1")).getMonth();
+      const monthB = new Date(Date.parse(b.month + " 1")).getMonth();
+      return monthB - monthA;
+    });
 
+    setMonthlyData(sortedMonthlyData);
+  }, []);
+
+  // Carregar dados de histórico
+  const loadHistoryData = useCallback(async () => {
+    setIsLoading(true);
+    setAlert(null);
+
+    try {
+      const startDate = `${selectedYear}-01-01`;
+      const endDate = `${selectedYear}-12-31`;
+
+      // Usar limite maior para obter todos os dados do ano
+      const result = await getRoomHistory({
+        startDate,
+        endDate,
+        limit: 5000, // Aumentar limite se necessário
+      });
+
+      if (result.success && result.data) {
+        const normalizedData = result.data.map((record: any) => ({
+          id: record.id,
+          roomNumber: record.roomNumber,
+          guest1Name: record.guest1Name,
+          guest1Phone: record.guest1Phone ?? undefined,
+          guest2Name: record.guest2Name ?? undefined,
+          guest2Phone: record.guest2Phone ?? undefined,
+          checkoutDate: record.checkoutDate ?? undefined,
+          companyName: record.companyName ?? undefined,
+          roomType: record.roomType,
+          guest1CheckinDate: record.checkinDate,
+        }));
+
+        setHistoryData(normalizedData);
+        organizeByMonth(normalizedData);
+      } else {
+        setAlert({
+          type: "error",
+          message: result.error || "Error al cargar el historial",
+        });
+      }
+    } catch (error) {
+      console.error("Error loading history:", error);
+      setAlert({
+        type: "error",
+        message: "Error inesperado al cargar los datos",
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  }, [selectedYear, organizeByMonth]);
+
+  // Efeitos
+  useEffect(() => {
+    loadHistoryData();
+  }, [loadHistoryData]);
+
+  // Funções auxiliares
   const toggleMonth = (monthKey: string) => {
     const newExpanded = new Set(expandedMonths);
-    newExpanded.has(monthKey)
-      ? newExpanded.delete(monthKey)
-      : newExpanded.add(monthKey);
+    if (newExpanded.has(monthKey)) {
+      newExpanded.delete(monthKey);
+    } else {
+      newExpanded.add(monthKey);
+    }
     setExpandedMonths(newExpanded);
   };
 
-  const formatDate = (dateString: string) =>
-    new Date(dateString).toLocaleDateString("es-ES", {
-      day: "2-digit",
-      month: "2-digit",
-      year: "numeric",
-    });
+  const formatDate = (dateString: string) => {
+    try {
+      return new Date(dateString).toLocaleDateString("es-ES", {
+        day: "2-digit",
+        month: "2-digit",
+        year: "numeric",
+      });
+    } catch {
+      return dateString;
+    }
+  };
 
-  const filteredMonthlyData = monthlyData
-    .map((monthData) => ({
-      ...monthData,
-      records: monthData.records.filter(
-        (record) =>
-          !searchTerm ||
-          record.guest1Name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          record.guest2Name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          record.roomNumber.includes(searchTerm) ||
-          record.guest1Phone?.includes(searchTerm) ||
-          record.guest2Phone?.includes(searchTerm) ||
-          record.companyName?.toLowerCase().includes(searchTerm.toLowerCase()),
+  // Filtrar dados mensais com memoização
+  const filteredMonthlyData = useMemo(() => {
+    const searchLower = searchTerm.toLowerCase();
+
+    return monthlyData
+      .map((monthData) => ({
+        ...monthData,
+        records: monthData.records.filter(
+          (record) =>
+            !searchTerm ||
+            record.guest1Name.toLowerCase().includes(searchLower) ||
+            record.guest2Name?.toLowerCase().includes(searchLower) ||
+            record.roomNumber.includes(searchTerm) ||
+            record.guest1Phone?.includes(searchTerm) ||
+            record.guest2Phone?.includes(searchTerm) ||
+            record.companyName?.toLowerCase().includes(searchLower),
+        ),
+      }))
+      .filter((monthData) => monthData.records.length > 0);
+  }, [monthlyData, searchTerm]);
+
+  // Anos disponíveis
+  const availableYears = useMemo(() => {
+    const years = Array.from(
+      new Set(
+        historyData.map((record) =>
+          new Date(record.guest1CheckinDate).getFullYear(),
+        ),
       ),
-    }))
-    .filter((monthData) => monthData.records.length > 0);
+    ).sort((a, b) => b - a);
 
-  const availableYears = Array.from(
-    new Set(
-      historyData.map((record) => new Date(record.checkinDate).getFullYear()),
-    ),
-  ).sort((a, b) => b - a);
+    // Adicionar o ano atual se não estiver na lista
+    if (!years.includes(new Date().getFullYear())) {
+      years.unshift(new Date().getFullYear());
+    }
 
-  if (isLoading)
-    return <div className="text-center mt-10">Cargando historial...</div>;
+    return years;
+  }, [historyData]);
+
+  // Renderização
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <p className="text-gray-600">Cargando historial...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="max-w-6xl mx-auto p-4 sm:p-6 space-y-6">
-      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4 sm:gap-0">
-        <h1 className="text-2xl sm:text-3xl font-bold">
-          Historial de Hospedajes
-        </h1>
-        <select
-          value={selectedYear}
-          onChange={(e) => setSelectedYear(Number(e.target.value))}
-          className="px-3 py-2 border rounded-md w-full sm:w-auto"
-        >
-          {availableYears.map((year) => (
-            <option key={year} value={year}>
-              {year}
-            </option>
-          ))}
-        </select>
+      {/* Header con estadísticas */}
+      <div className="bg-white rounded-lg shadow-sm p-6">
+        <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4">
+          <h1 className="text-2xl sm:text-3xl font-bold">
+            Historial de Hospedajes
+          </h1>
+          <select
+            value={selectedYear}
+            onChange={(e) => setSelectedYear(Number(e.target.value))}
+            className="px-4 py-2 border rounded-md w-full sm:w-auto focus:ring-2 focus:ring-blue-500"
+          >
+            {availableYears.map((year) => (
+              <option key={year} value={year}>
+                {year}
+              </option>
+            ))}
+          </select>
+        </div>
       </div>
 
       {/* Búsqueda y botones */}
-      <div className="flex flex-col sm:flex-row gap-2 sm:gap-4 items-stretch sm:items-center">
-        <div className="relative flex-1 w-full">
-          <Search className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
-          <Input
-            placeholder="Buscar por nombre, teléfono, habitación o empresa..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="pl-10 w-full"
-          />
-        </div>
-        <div className="flex flex-col sm:flex-row gap-2 sm:gap-4">
-          <Button
-            onClick={() =>
-              setExpandedMonths(
-                new Set(
-                  filteredMonthlyData.map((_, index) => index.toString()),
-                ),
-              )
-            }
-            variant="outline"
-          >
-            Expandir Todos
-          </Button>
-          <Button
-            onClick={() => setExpandedMonths(new Set())}
-            variant="outline"
-          >
-            Colapsar Todos
-          </Button>
+      <div className="bg-white rounded-lg shadow-sm p-4">
+        <div className="flex flex-col sm:flex-row gap-2 sm:gap-4 items-stretch sm:items-center">
+          <div className="relative flex-1 w-full">
+            <Search className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
+            <Input
+              placeholder="Buscar por nombre, teléfono, habitación o empresa..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="pl-10 w-full"
+            />
+          </div>
+          <div className="flex flex-col sm:flex-row gap-2 sm:gap-4">
+            <Button
+              onClick={() =>
+                setExpandedMonths(
+                  new Set(
+                    filteredMonthlyData.map((_, index) => index.toString()),
+                  ),
+                )
+              }
+              variant="outline"
+              className="hover:bg-gray-50"
+            >
+              Expandir Todos
+            </Button>
+            <Button
+              onClick={() => setExpandedMonths(new Set())}
+              variant="outline"
+              className="hover:bg-gray-50"
+            >
+              Colapsar Todos
+            </Button>
+          </div>
         </div>
       </div>
 
+      {/* Alertas */}
       {alert && (
         <Alert
           className={`flex items-center gap-2 p-3 rounded ${
@@ -264,10 +305,12 @@ const Page = () => {
       {/* Datos mensuales */}
       <div className="space-y-4">
         {filteredMonthlyData.length === 0 ? (
-          <div className="text-center py-8 text-gray-500">
-            {searchTerm
-              ? "No se encontraron resultados."
-              : "No hay registros para este año."}
+          <div className="bg-white rounded-lg shadow-sm p-8 text-center">
+            <div className="text-gray-500">
+              {searchTerm
+                ? "No se encontraron resultados para tu búsqueda."
+                : "No hay registros para este año."}
+            </div>
           </div>
         ) : (
           filteredMonthlyData.map((monthData, index) => {
@@ -277,10 +320,10 @@ const Page = () => {
             return (
               <div
                 key={monthKey}
-                className="bg-white border rounded-lg shadow-sm"
+                className="bg-white border rounded-lg shadow-sm overflow-hidden"
               >
                 <div
-                  className="flex justify-between items-center p-4 cursor-pointer hover:bg-gray-50 flex-wrap"
+                  className="flex justify-between items-center p-4 cursor-pointer hover:bg-gray-50 transition-colors"
                   onClick={() => toggleMonth(monthKey)}
                 >
                   <div className="flex items-center gap-2">
@@ -294,52 +337,62 @@ const Page = () => {
                       {monthData.month}
                     </h3>
                   </div>
-                  <div className="flex gap-4 text-sm text-gray-600 mt-2 sm:mt-0 flex-wrap">
-                    <span>{monthData.records.length} reservas</span>
-                    <span>{monthData.totalGuests} huéspedes</span>
+                  <div className="flex gap-4 text-sm text-gray-600 flex-wrap">
+                    <span className="bg-gray-100 px-2 py-1 rounded">
+                      {monthData.records.length} reservas
+                    </span>
+                    <span className="bg-gray-100 px-2 py-1 rounded">
+                      {monthData.totalGuests} huéspedes
+                    </span>
                   </div>
                 </div>
 
                 {isExpanded && (
                   <div className="border-t overflow-x-auto">
-                    <table className="w-full text-sm min-w-[600px]">
+                    <table className="w-full text-sm">
                       <thead className="bg-gray-50">
                         <tr>
-                          <th className="text-left p-3 font-medium">
+                          <th className="text-left p-3 font-medium whitespace-nowrap">
                             Habitación
                           </th>
-                          <th className="text-left p-3 font-medium">Empresa</th>
-                          <th className="text-left p-3 font-medium">
+                          <th className="text-left p-3 font-medium whitespace-nowrap">
+                            Empresa
+                          </th>
+                          <th className="text-left p-3 font-medium whitespace-nowrap">
                             Huésped(es)
                           </th>
-                          <th className="text-left p-3 font-medium">
+                          <th className="text-left p-3 font-medium whitespace-nowrap">
                             Teléfono
                           </th>
-                          <th className="text-left p-3 font-medium">
+                          <th className="text-left p-3 font-medium whitespace-nowrap">
                             Check-in
                           </th>
-                          <th className="text-left p-3 font-medium">
+                          <th className="text-left p-3 font-medium whitespace-nowrap">
                             Check-out
                           </th>
-                          <th className="text-left p-3 font-medium">Tipo</th>
-                          <th className="text-left p-3 font-medium">Estado</th>
+                          <th className="text-left p-3 font-medium whitespace-nowrap">
+                            Tipo
+                          </th>
+                          <th className="text-left p-3 font-medium whitespace-nowrap">
+                            Estado
+                          </th>
                         </tr>
                       </thead>
-                      <tbody>
+                      <tbody className="divide-y divide-gray-200">
                         {monthData.records
                           .sort(
                             (a, b) =>
-                              new Date(b.checkinDate).getTime() -
-                              new Date(a.checkinDate).getTime(),
+                              new Date(b.guest1CheckinDate).getTime() -
+                              new Date(a.guest1CheckinDate).getTime(),
                           )
                           .map((record) => (
                             <tr
                               key={record.id}
-                              className="border-t hover:bg-gray-50"
+                              className="hover:bg-gray-50 transition-colors"
                             >
                               <td className="p-3">
                                 <div className="flex items-center gap-2">
-                                  <Home className="h-4 w-4 text-gray-600" />
+                                  <Home className="h-4 w-4 text-gray-500" />
                                   <span className="font-medium">
                                     {record.roomNumber}
                                   </span>
@@ -352,7 +405,7 @@ const Page = () => {
                               </td>
                               <td className="p-3">
                                 <div className="flex items-center gap-2">
-                                  <User className="h-4 w-4 text-gray-600" />
+                                  <User className="h-4 w-4 text-gray-500" />
                                   <div>
                                     <div className="font-medium">
                                       {record.guest1Name}
@@ -366,28 +419,32 @@ const Page = () => {
                                 </div>
                               </td>
                               <td className="p-3">
-                                <div className="flex items-center gap-2">
-                                  <Phone className="h-4 w-4 text-gray-600" />
-                                  <div>
-                                    {record.guest1Phone && (
-                                      <div className="text-sm">
-                                        {record.guest1Phone}
-                                      </div>
-                                    )}
-                                    {record.guest2Phone && (
-                                      <div className="text-sm text-gray-600">
-                                        {record.guest2Phone}
-                                      </div>
-                                    )}
+                                {(record.guest1Phone || record.guest2Phone) && (
+                                  <div className="flex items-center gap-2">
+                                    <Phone className="h-4 w-4 text-gray-500" />
+                                    <div>
+                                      {record.guest1Phone && (
+                                        <div className="text-sm">
+                                          {record.guest1Phone}
+                                        </div>
+                                      )}
+                                      {record.guest2Phone && (
+                                        <div className="text-sm text-gray-600">
+                                          {record.guest2Phone}
+                                        </div>
+                                      )}
+                                    </div>
                                   </div>
-                                </div>
+                                )}
                               </td>
-                              <td className="p-3 text-green-700">
-                                {formatDate(record.checkinDate)}
+                              <td className="p-3">
+                                <span className="text-green-700 font-medium">
+                                  {formatDate(record.guest1CheckinDate)}
+                                </span>
                               </td>
                               <td className="p-3">
                                 {record.checkoutDate ? (
-                                  <span className="text-red-700">
+                                  <span className="text-red-700 font-medium">
                                     {formatDate(record.checkoutDate)}
                                   </span>
                                 ) : (
@@ -397,19 +454,20 @@ const Page = () => {
                                 )}
                               </td>
                               <td className="p-3">
-                                <span className="px-2 py-1 bg-gray-100 rounded text-xs uppercase">
+                                <span className="px-2 py-1 bg-gray-100 rounded text-xs uppercase font-medium">
                                   {record.roomType}
                                 </span>
                               </td>
                               <td className="p-3">
                                 {record.checkoutDate ? (
                                   <span className="flex items-center gap-1 text-green-700">
-                                    <CheckCircle className="h-4 w-4" />{" "}
+                                    <CheckCircle className="h-4 w-4" />
                                     Completada
                                   </span>
                                 ) : (
                                   <span className="flex items-center gap-1 text-blue-600">
-                                    <Clock className="h-4 w-4" /> Activa
+                                    <Clock className="h-4 w-4" />
+                                    Activa
                                   </span>
                                 )}
                               </td>

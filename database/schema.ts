@@ -1,15 +1,9 @@
-import {
-  varchar,
-  uuid,
-  text,
-  pgTable,
-  timestamp,
-  decimal,
-} from "drizzle-orm/pg-core";
+// database/schema.ts - Versão corrigida
+import { varchar, uuid, text, pgTable, timestamp } from "drizzle-orm/pg-core";
 import { date } from "drizzle-orm/pg-core/columns/date";
 import { pgEnum } from "drizzle-orm/pg-core/columns/enum";
 
-export const STATUS_ENUM = pgEnum("status", ["Dirty", "Free", "Ocupied"]);
+export const STATUS_ENUM = pgEnum("status", ["Dirty", "Free", "Occupied"]);
 export const ROLE_ENUM = pgEnum("role", ["Dev", "Admin", "Worker", "Pending"]);
 export const ROOM_TYPE_ENUM = pgEnum("type", ["single", "double"]);
 
@@ -18,13 +12,14 @@ export const users = pgTable("users", {
   fullName: varchar("full_name", { length: 255 }).notNull(),
   email: text("email").notNull().unique(),
   password: text().notNull(),
-  role: ROLE_ENUM("role").default("Pending"),
+  role: ROLE_ENUM("role").notNull().default("Pending"),
 });
+
 export const Rooms = pgTable("Rooms", {
   id: uuid("id").notNull().primaryKey().defaultRandom().unique(),
   number: varchar("number", { length: 10 }).notNull().unique(),
   type: ROOM_TYPE_ENUM("type").notNull(),
-  status: STATUS_ENUM("status").default("Free"),
+  status: STATUS_ENUM("status").notNull().default("Free"),
   company: varchar("company", { length: 100 }),
 
   // Informações do hóspede 1
@@ -45,25 +40,20 @@ export const RoomHistory = pgTable("room_history", {
     .references(() => Rooms.id),
   roomNumber: text("room_number").notNull(),
   companyName: text("company_name"),
-  // Dados do hóspede principal
+
   guest1Name: text("guest1_name").notNull(),
   guest1Phone: text("guest1_phone"),
 
-  // Dados do segundo hóspede (para quartos duplos)
   guest2Name: text("guest2_name"),
   guest2Phone: text("guest2_phone"),
 
-  // Datas e valores
   checkinDate: timestamp("checkin_date").defaultNow().notNull(),
   checkoutDate: timestamp("checkout_date"),
 
-  // Tipo do quarto na altura da reserva
   roomType: text("room_type").notNull(), // "single" | "double"
 
-  // Observações adicionais
   notes: text("notes"),
 
-  // Dados de auditoria
   createdBy: uuid("created_by"), // ID do usuário que fez o check-in
   updatedBy: uuid("updated_by"), // ID do usuário que fez o check-out
 

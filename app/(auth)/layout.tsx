@@ -9,7 +9,6 @@ const Layout = async ({ children }: { children: ReactNode }) => {
 
   return (
     <main className="min-h-screen flex flex-col lg:flex-row bg-blue-900">
-      {/* Imagen lateral */}
       <section className="hidden lg:block lg:h-auto lg:flex-1 relative order-first lg:order-last">
         <Image
           className="object-cover w-full h-full"
@@ -22,10 +21,8 @@ const Layout = async ({ children }: { children: ReactNode }) => {
         <div className="absolute inset-0 bg-black/40"></div>
       </section>
 
-      {/* Formulario */}
       <section className="bg-gradient-to-b from-gray-50 to-white  flex items-center justify-center p-4 lg:p-12">
         <div className="w-full max-w-md">
-          {/* Logo + Título */}
           <div className="flex items-center gap-3 mb-8 justify-center">
             <Image
               src="/meivcore.png"
@@ -36,12 +33,10 @@ const Layout = async ({ children }: { children: ReactNode }) => {
             />
           </div>
 
-          {/* Caja del formulario */}
           <div className="bg-white/90 backdrop-blur-sm rounded-xl shadow-md p-6 border border-gray-200">
             {children}
           </div>
 
-          {/* Pie de página opcional */}
           <p className="mt-6 text-center text-sm text-gray-900">
             © {new Date().getFullYear()} Hostal Meivcore · Todos los derechos
             reservados

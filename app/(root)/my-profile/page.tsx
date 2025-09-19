@@ -3,7 +3,6 @@ import { Button } from "@/components/ui/button";
 import { signOut } from "@/auth";
 import { Avatar } from "@/components/ui/avatar";
 import { AvatarFallback } from "@radix-ui/react-avatar";
-import { Session } from "next-auth";
 import { User } from "lucide-react"; // ⬅️ ícone de usuário
 
 const Page = () => {
@@ -14,18 +13,16 @@ const Page = () => {
           Panel de Usuario
         </h1>
 
-        {/* Avatar */}
         <Avatar className="w-16 h-16 mx-auto mb-4">
           <AvatarFallback className="w-full h-full bg-gradient-to-br from-blue-600 to-blue-700 text-white text-xs sm:text-sm font-semibold flex items-center justify-center rounded-full">
             <User className="w-8 h-8" />
           </AvatarFallback>
         </Avatar>
 
-        {/* Botón de Cerrar Sesión */}
         <form
           action={async () => {
             "use server";
-            await signOut();
+            await signOut({ redirect: true, redirectTo: "/" });
           }}
           className="mb-4"
         >
