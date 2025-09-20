@@ -1,17 +1,16 @@
-// middleware.ts (na raiz do projeto, mesmo nível que package.json)
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
+import { db } from "@/database/drizzle";
+import { users } from "@/database/schema";
+import { eq } from "drizzle-orm";
 import { auth } from "@/auth";
 
-// Debug logs para verificar se o middleware está funcionando
 console.log("🔧 Middleware carregado!");
 
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
-  console.log(`🛡️ Middleware executando para: ${pathname}`);
-
-  // Rotas que não precisam de autenticação (APENAS estas)
+  // Rotas públicas
   const publicRoutes = [
     "/sign-in",
     "/sign-up",
@@ -21,64 +20,46 @@ export async function middleware(request: NextRequest) {
     "/favicon.ico",
   ];
 
-  // Verificar se é uma rota pública
   const isPublicRoute = publicRoutes.some((route) =>
     pathname.startsWith(route),
   );
 
-  if (isPublicRoute) {
-    console.log(`✅ Rota pública permitida: ${pathname}`);
-    return NextResponse.next();
-  }
+  if (isPublicRoute) return NextResponse.next();
 
   try {
     console.log("🔍 Verificando sessão...");
-
-    // Obter sessão
     const session = await auth();
 
-    // DEBUG: Mostrar estrutura completa da sessão
-    console.log("📋 Sessão completa:", JSON.stringify(session, null, 2));
-
-    // Se não tem sessão, redirecionar para login
-    if (!session || !session.user) {
-      console.log("❌ Sessão inválida - redirecionando para login");
+    if (!session?.user?.email) {
+      console.log("❌ Sem sessão - redirecionando para login");
       const loginUrl = new URL("/sign-in", request.url);
       loginUrl.searchParams.set("callbackUrl", pathname);
       return NextResponse.redirect(loginUrl);
     }
 
-    // Extrair dados do usuário com segurança
-    const userEmail = session.user.email ?? "N/A";
+    // Forçar lowercase no email para evitar problemas
+    const email = session.user.email.toLowerCase();
 
-    // Verificar múltiplos campos onde o role pode estar
-    const sessionUser = session.user as any;
-    const sessionAny = session as any;
+    // Buscar usuário na DB
+    const [user] = await db
+      .select({ role: users.role })
+      .from(users)
+      .where(eq(users.email, email))
+      .limit(1);
 
-    const possibleRoles = [
-      sessionUser?.role,
-      sessionAny?.role,
-      sessionUser?.userRole,
-      sessionAny?.user?.role,
-    ].filter((role) => role !== undefined && role !== null);
+    if (!user) {
+      console.log("❌ Usuário não encontrado - logout");
+      const loginUrl = new URL("/sign-in", request.url);
+      return NextResponse.redirect(loginUrl);
+    }
 
-    const actualRole = possibleRoles[0] || "Unknown";
+    const actualRole = user.role;
 
-    console.log("🔍 Dados extraídos:", {
-      hasSession: true,
-      hasUser: true,
-      userEmail,
-      actualRole,
-      possibleRoles,
-    });
+    console.log(`✅ Usuário ${email} com role: ${actualRole}`);
 
-    // BLOQUEAR USUÁRIOS PENDING EM TODAS AS ROTAS (exceto públicas)
+    // Bloquear usuários pendentes
     if (actualRole === "Pending") {
-      console.log(
-        `🚫 Usuário pending bloqueado: ${userEmail} tentando aceder a ${pathname}`,
-      );
-
-      return new NextResponse(generatePendingHTML(userEmail), {
+      return new NextResponse(generatePendingHTML(email), {
         status: 403,
         headers: {
           "Content-Type": "text/html; charset=utf-8",
@@ -89,20 +70,16 @@ export async function middleware(request: NextRequest) {
       });
     }
 
+    // Rotas admin
     const adminRoutePatterns = [
       /^\/room-history/,
       /^\/create-room/,
-      /^\/rooms\/[^\/]+\/admin/, // [roomid] pode ser qualquer coisa
+      /^\/rooms\/[^\/]+\/admin/,
     ];
-
     const needsAdmin = adminRoutePatterns.some((regex) => regex.test(pathname));
 
     if (needsAdmin && actualRole !== "Admin") {
-      console.log(
-        `🚫 Acesso negado para ${userEmail} (role: ${actualRole}) na rota: ${pathname}`,
-      );
-
-      return new NextResponse(generateAccessDeniedHTML(userEmail, actualRole), {
+      return new NextResponse(generateAccessDeniedHTML(email, actualRole), {
         status: 403,
         headers: {
           "Content-Type": "text/html; charset=utf-8",
@@ -113,13 +90,13 @@ export async function middleware(request: NextRequest) {
       });
     }
 
-    console.log(
-      `✅ Acesso permitido para ${userEmail} (role: ${actualRole}) na rota: ${pathname}`,
-    );
-    return NextResponse.next();
+    return NextResponse.next({
+      headers: {
+        "Cache-Control": "no-store, no-cache, must-revalidate",
+      },
+    });
   } catch (error) {
     console.error("💥 Erro no middleware:", error);
-    // Em caso de erro, redirecionar para login
     const loginUrl = new URL("/sign-in", request.url);
     return NextResponse.redirect(loginUrl);
   }
