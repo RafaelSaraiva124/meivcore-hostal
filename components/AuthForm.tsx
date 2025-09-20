@@ -1,5 +1,5 @@
 "use client";
-
+import Link from "next/link";
 import { zodResolver } from "@hookform/resolvers/zod";
 import {
   DefaultValues,
@@ -44,6 +44,9 @@ const AuthForm = <T extends FieldValues>({
   });
 
   const handleSubmit: SubmitHandler<T> = async (data) => {
+    if ("email" in data) {
+      (data as any).email = (data as any).email.toLowerCase();
+    }
     const result = await onSubmit(data);
     if (result.success) {
       toast({
@@ -51,6 +54,8 @@ const AuthForm = <T extends FieldValues>({
         description: isSignIN
           ? "Has iniciado sesión correctamente"
           : "Tu cuenta ha sido creada con éxito",
+        variant: "destructive",
+        className: "bg-green-400 text-white shadow-lg rounded-lg px-4 py-2",
       });
 
       router.push("/");
@@ -59,6 +64,7 @@ const AuthForm = <T extends FieldValues>({
         title: "Error",
         description: result.error ?? "Ha ocurrido un error.",
         variant: "destructive",
+        className: "bg-red-600 text-white shadow-lg rounded-lg px-4 py-2",
       });
     }
   };
@@ -115,6 +121,16 @@ const AuthForm = <T extends FieldValues>({
           >
             {isSignIN ? "Iniciar Sesión" : "Crear Cuenta"}
           </Button>
+          <p className="text-center text-base font-medium">
+            {!isSignIN ? "¿Ya tienes cuenta? " : "¿Aún no tienes cuenta? "}
+
+            <Link
+              href={!isSignIN ? "/sign-in" : "/sign-up"}
+              className="font-bold text-primary"
+            >
+              {!isSignIN ? "Iniciar sesión" : "Registrarse"}
+            </Link>
+          </p>
         </form>
       </Form>
     </div>
