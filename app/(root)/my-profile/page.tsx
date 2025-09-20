@@ -7,8 +7,8 @@ import { User } from "lucide-react"; // ⬅️ ícone de usuário
 
 const Page = () => {
   return (
-    <div className="flex flex-col items-center justify-center min-h-screen bg-gray-50 p-6">
-      <div className="bg-white shadow-md rounded-2xl p-6 w-full max-w-sm text-center">
+    <div className="flex flex-col items-center justify-center  bg-gray-50 p-2">
+      <div className="bg-white shadow-md rounded-2xl p-2 w-full max-w-sm text-center">
         <h1 className="text-2xl font-bold mb-6 text-gray-800">
           Panel de Usuario
         </h1>
