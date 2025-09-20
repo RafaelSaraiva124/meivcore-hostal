@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useEffect, useState, useMemo, useCallback } from "react";
-import { getRoomHistory, getHistoryStats } from "@/lib/actions/rooms";
+import { getRoomHistory } from "@/lib/actions/rooms";
 import {
   exportMonthlyHistory,
   exportYearlyHistory,
@@ -16,9 +16,7 @@ import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import {
   Calendar,
-  User,
   Phone,
-  Home,
   Search,
   ChevronDown,
   ChevronUp,
@@ -74,7 +72,7 @@ const Page = () => {
     data.forEach((record) => {
       const date = new Date(record.guest1CheckinDate);
       const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
-      const monthName = date.toLocaleDateString("pt-BR", {
+      const monthName = date.toLocaleDateString("es-ES", {
         month: "short",
         year: "numeric",
       });
@@ -134,7 +132,7 @@ const Page = () => {
         });
       }
     } catch (error) {
-      console.error("Error loading history:", error);
+      console.error("Error cargando historial:", error);
       setAlert({
         type: "error",
         message: "Error inesperado al cargar los datos",
@@ -176,7 +174,7 @@ const Page = () => {
 
   const formatDate = (dateString: string) => {
     try {
-      return new Date(dateString).toLocaleDateString("pt-BR", {
+      return new Date(dateString).toLocaleDateString("es-ES", {
         day: "2-digit",
         month: "2-digit",
       });
@@ -227,7 +225,6 @@ const Page = () => {
     return years;
   }, [allHistoryData]);
 
-  // Função para exportar mês específico
   const handleExportMonth = useCallback(async (monthData: MonthlyData) => {
     try {
       const result = await exportMonthlyHistory(monthData);
@@ -235,19 +232,18 @@ const Page = () => {
 
       setAlert({
         type: "success",
-        message: `Arquivo ${result.fileName} baixado com sucesso!`,
+        message: `Archivo ${result.fileName} descargado con éxito!`,
       });
     } catch (error) {
-      console.error("Erro ao exportar mês:", error);
+      console.error("Error exportando mes:", error);
       setAlert({
         type: "error",
         message:
-          error instanceof Error ? error.message : "Erro ao exportar mês",
+          error instanceof Error ? error.message : "Error al exportar mes",
       });
     }
   }, []);
 
-  // Função para exportar ano completo
   const handleExportYear = useCallback(async () => {
     try {
       const result = await exportYearlyHistory(
@@ -258,21 +254,18 @@ const Page = () => {
 
       setAlert({
         type: "success",
-        message: `Arquivo ${result.fileName} baixado com sucesso!`,
+        message: `Archivo ${result.fileName} descargado con éxito!`,
       });
     } catch (error) {
-      console.error("Erro ao exportar ano:", error);
+      console.error("Error exportando año:", error);
       setAlert({
         type: "error",
         message:
-          error instanceof Error
-            ? error.message
-            : "Erro ao exportar ano completo",
+          error instanceof Error ? error.message : "Error al exportar año",
       });
     }
   }, [filteredMonthlyData, selectedYear]);
 
-  // Função para exportar estatísticas
   const handleExportStats = useCallback(async () => {
     try {
       const result = await exportStatistics(filteredMonthlyData, selectedYear);
@@ -280,25 +273,23 @@ const Page = () => {
 
       setAlert({
         type: "success",
-        message: `Arquivo ${result.fileName} baixado com sucesso!`,
+        message: `Archivo ${result.fileName} descargado con éxito!`,
       });
     } catch (error) {
-      console.error("Erro ao exportar estatísticas:", error);
+      console.error("Error exportando estadísticas:", error);
       setAlert({
         type: "error",
         message:
           error instanceof Error
             ? error.message
-            : "Erro ao exportar estatísticas",
+            : "Error al exportar estadísticas",
       });
     }
   }, [filteredMonthlyData, selectedYear]);
 
-  // Componente super compacto para mobile
   const CompactRecordCard = ({ record }: { record: HistoryRecord }) => (
     <div className="border-b border-gray-200 py-2 px-1 last:border-b-0">
       <div className="flex justify-between items-start gap-2">
-        {/* Info principal */}
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-1 mb-1">
             <span className="font-medium text-sm bg-blue-50 px-1.5 py-0.5 rounded text-blue-700">
@@ -319,7 +310,7 @@ const Page = () => {
             {record.guest2Name && (
               <span className="text-sm text-gray-600 font-medium">
                 {" "}
-                & {record.guest2Name}
+                y {record.guest2Name}
               </span>
             )}
           </div>
@@ -332,15 +323,13 @@ const Page = () => {
           )}
         </div>
 
-        {/* Datas e telefone */}
         <div className="text-right text-xs text-gray-500 flex-shrink-0">
           <div className="text-green-600 font-medium">
             {formatDate(record.guest1CheckinDate)}
           </div>
           <div className="text-red-600">
-            {record.checkoutDate ? formatDate(record.checkoutDate) : "Ativo"}
+            {record.checkoutDate ? formatDate(record.checkoutDate) : "Activo"}
           </div>
-          {/* Telefones - mostrar ambos se existirem */}
           {(record.guest1Phone || record.guest2Phone) && (
             <div className="flex flex-col items-end gap-1 mt-1">
               {record.guest1Phone && (
@@ -381,7 +370,7 @@ const Page = () => {
       <div className="flex items-center justify-center min-h-screen px-4">
         <div className="text-center">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-2"></div>
-          <p className="text-sm text-gray-600">Carregando...</p>
+          <p className="text-sm text-gray-600">Cargando...</p>
         </div>
       </div>
     );
@@ -389,11 +378,10 @@ const Page = () => {
 
   return (
     <div className="max-w-6xl mx-auto p-2 sm:p-6 space-y-3 sm:space-y-6">
-      {/* Header ultra compacto */}
       <div className="bg-white rounded-lg shadow-sm p-3 sm:p-6">
         <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2 sm:gap-4">
           <div>
-            <h1 className="text-lg sm:text-3xl font-bold">Histórico</h1>
+            <h1 className="text-lg sm:text-3xl font-bold">Historial</h1>
             <div className="flex gap-4 text-xs sm:text-sm text-gray-600 mt-1 sm:hidden">
               <span>
                 {filteredMonthlyData.reduce(
@@ -407,7 +395,7 @@ const Page = () => {
                   (sum, month) => sum + month.totalGuests,
                   0,
                 )}{" "}
-                hóspedes
+                huéspedes
               </span>
             </div>
           </div>
@@ -426,7 +414,6 @@ const Page = () => {
         </div>
       </div>
 
-      {/* Controles compactos */}
       <div className="bg-white rounded-lg shadow-sm p-3">
         <div className="flex gap-2 mb-3">
           <div className="relative flex-1">
@@ -460,7 +447,6 @@ const Page = () => {
           </Button>
         </div>
 
-        {/* Botões de exportar */}
         <div className="flex flex-col sm:flex-row gap-2 justify-center">
           <Button
             onClick={handleExportYear}
@@ -482,13 +468,12 @@ const Page = () => {
             disabled={historyData.length === 0}
           >
             <BarChart3 className="h-4 w-4" />
-            <span className="hidden sm:inline">Estatísticas</span>
+            <span className="hidden sm:inline">Estadísticas</span>
             <span className="sm:hidden">Stats</span>
           </Button>
         </div>
       </div>
 
-      {/* Alertas */}
       {alert && (
         <Alert
           className={`p-2 ${alert.type === "success" ? "border-green-300 bg-green-50" : "border-red-300 bg-red-50"}`}
@@ -508,14 +493,13 @@ const Page = () => {
         </Alert>
       )}
 
-      {/* Lista ultra compacta */}
       <div className="space-y-2 sm:space-y-4">
         {filteredMonthlyData.length === 0 ? (
           <div className="bg-white rounded-lg shadow-sm p-6 text-center">
             <div className="text-gray-500 text-sm">
               {searchTerm
-                ? "Nenhum resultado encontrado."
-                : "Não há registros para este ano."}
+                ? "No se encontraron resultados."
+                : "No hay registros para este año."}
             </div>
           </div>
         ) : (
@@ -528,7 +512,6 @@ const Page = () => {
                 key={monthKey}
                 className="bg-white border rounded-lg shadow-sm overflow-hidden"
               >
-                {/* Header do mês compacto */}
                 <div
                   className="flex justify-between items-center p-3 cursor-pointer hover:bg-gray-50 transition-colors"
                   onClick={() => toggleMonth(monthKey)}
@@ -548,12 +531,6 @@ const Page = () => {
                   </div>
 
                   <div className="flex gap-2 text-xs">
-                    <span className="bg-blue-100 text-blue-700 px-2 py-1 rounded">
-                      {monthData.records.length}
-                    </span>
-                    <span className="bg-green-100 text-green-700 px-2 py-1 rounded">
-                      {monthData.totalGuests}
-                    </span>
                     <Button
                       onClick={(e) => {
                         e.stopPropagation();
