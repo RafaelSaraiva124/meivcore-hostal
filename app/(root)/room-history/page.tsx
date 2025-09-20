@@ -2,6 +2,15 @@
 
 import React, { useEffect, useState, useMemo, useCallback } from "react";
 import { getRoomHistory, getHistoryStats } from "@/lib/actions/rooms";
+import {
+  exportMonthlyHistory,
+  exportYearlyHistory,
+  exportStatistics,
+} from "@/lib/actions/export";
+import {
+  processExcelDownload,
+  processMultiSheetExcelDownload,
+} from "@/lib/excel";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -19,6 +28,8 @@ import {
   Building2,
   Expand,
   Minimize,
+  Download,
+  BarChart3,
 } from "lucide-react";
 
 interface HistoryRecord {
@@ -216,6 +227,73 @@ const Page = () => {
     return years;
   }, [allHistoryData]);
 
+  // Função para exportar mês específico
+  const handleExportMonth = useCallback(async (monthData: MonthlyData) => {
+    try {
+      const result = await exportMonthlyHistory(monthData);
+      await processExcelDownload(result);
+
+      setAlert({
+        type: "success",
+        message: `Arquivo ${result.fileName} baixado com sucesso!`,
+      });
+    } catch (error) {
+      console.error("Erro ao exportar mês:", error);
+      setAlert({
+        type: "error",
+        message:
+          error instanceof Error ? error.message : "Erro ao exportar mês",
+      });
+    }
+  }, []);
+
+  // Função para exportar ano completo
+  const handleExportYear = useCallback(async () => {
+    try {
+      const result = await exportYearlyHistory(
+        filteredMonthlyData,
+        selectedYear,
+      );
+      await processMultiSheetExcelDownload(result);
+
+      setAlert({
+        type: "success",
+        message: `Arquivo ${result.fileName} baixado com sucesso!`,
+      });
+    } catch (error) {
+      console.error("Erro ao exportar ano:", error);
+      setAlert({
+        type: "error",
+        message:
+          error instanceof Error
+            ? error.message
+            : "Erro ao exportar ano completo",
+      });
+    }
+  }, [filteredMonthlyData, selectedYear]);
+
+  // Função para exportar estatísticas
+  const handleExportStats = useCallback(async () => {
+    try {
+      const result = await exportStatistics(filteredMonthlyData, selectedYear);
+      await processExcelDownload(result);
+
+      setAlert({
+        type: "success",
+        message: `Arquivo ${result.fileName} baixado com sucesso!`,
+      });
+    } catch (error) {
+      console.error("Erro ao exportar estatísticas:", error);
+      setAlert({
+        type: "error",
+        message:
+          error instanceof Error
+            ? error.message
+            : "Erro ao exportar estatísticas",
+      });
+    }
+  }, [filteredMonthlyData, selectedYear]);
+
   // Componente super compacto para mobile
   const CompactRecordCard = ({ record }: { record: HistoryRecord }) => (
     <div className="border-b border-gray-200 py-2 px-1 last:border-b-0">
@@ -350,7 +428,7 @@ const Page = () => {
 
       {/* Controles compactos */}
       <div className="bg-white rounded-lg shadow-sm p-3">
-        <div className="flex gap-2">
+        <div className="flex gap-2 mb-3">
           <div className="relative flex-1">
             <Search className="absolute left-2 top-2 h-4 w-4 text-gray-400" />
             <Input
@@ -379,6 +457,33 @@ const Page = () => {
             ) : (
               <Expand className="h-4 w-4" />
             )}
+          </Button>
+        </div>
+
+        {/* Botões de exportar */}
+        <div className="flex flex-col sm:flex-row gap-2 justify-center">
+          <Button
+            onClick={handleExportYear}
+            variant="outline"
+            size="sm"
+            className="flex items-center gap-2 text-green-700 border-green-300 hover:bg-green-50"
+            disabled={historyData.length === 0}
+          >
+            <Download className="h-4 w-4" />
+            <span className="hidden sm:inline">Excel Completo</span>
+            <span className="sm:hidden">Excel {selectedYear}</span>
+          </Button>
+
+          <Button
+            onClick={handleExportStats}
+            variant="outline"
+            size="sm"
+            className="flex items-center gap-2 text-blue-700 border-blue-300 hover:bg-blue-50"
+            disabled={historyData.length === 0}
+          >
+            <BarChart3 className="h-4 w-4" />
+            <span className="hidden sm:inline">Estatísticas</span>
+            <span className="sm:hidden">Stats</span>
           </Button>
         </div>
       </div>
@@ -449,6 +554,18 @@ const Page = () => {
                     <span className="bg-green-100 text-green-700 px-2 py-1 rounded">
                       {monthData.totalGuests}
                     </span>
+                    <Button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleExportMonth(monthData);
+                      }}
+                      variant="ghost"
+                      size="sm"
+                      className="h-6 w-6 p-0 text-green-600 hover:bg-green-50"
+                      title="Exportar este mês"
+                    >
+                      <Download className="h-3 w-3" />
+                    </Button>
                   </div>
                 </div>
 
