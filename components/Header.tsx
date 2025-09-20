@@ -24,32 +24,34 @@ const Header = ({ session }: { session: Session }) => {
 
   return (
     <header className="bg-white border-b border-gray-200 shadow-sm sticky top-0 z-50">
-      <div className="max-w-6xl mx-auto px-3 py-3 sm:px-4 sm:py-4">
+      <div className="max-w-6xl mx-auto px-2 py-2 sm:px-4 sm:py-3">
         <div className="flex justify-between items-center">
+          {/* LOGO */}
           <Link
             href="/"
-            className="flex items-center space-x-2 text-lg sm:text-xl font-bold text-gray-800 hover:text-blue-600 transition-colors duration-200 no-underline"
+            className="flex items-center space-x-2 text-base sm:text-xl font-bold text-gray-800 hover:text-blue-600 transition-colors duration-200 no-underline"
           >
             <div className="w-7 h-7 sm:w-8 sm:h-8 bg-blue-600 rounded-lg flex items-center justify-center">
               <span className="text-white font-bold text-xs sm:text-sm">H</span>
             </div>
-            <span className="hidden xs:block sm:inline">Hostal Meivcore</span>
+            <span className="hidden xs:inline sm:inline">Hostal Meivcore</span>
           </Link>
 
-          <nav className="flex items-center space-x-2 sm:space-x-8">
-            <ul className="flex items-center space-x-2 sm:space-x-6 list-none m-0 p-0">
+          {/* NAVIGATION */}
+          <nav className="flex items-center space-x-1 sm:space-x-6 overflow-x-auto scrollbar-none">
+            <ul className="flex items-center space-x-1 sm:space-x-6 list-none m-0 p-0">
               {isAdmin && (
                 <li>
                   <Link
                     href="/create-room"
                     className={cn(
-                      "relative px-1.5 py-1 sm:px-3 sm:py-2 text-xs sm:text-sm font-medium transition-all duration-200 no-underline rounded-md",
+                      "relative px-1 py-1 sm:px-3 sm:py-2 text-xs sm:text-sm font-medium transition-all duration-200 no-underline rounded-md whitespace-nowrap",
                       pathname === "/create-room"
                         ? "text-blue-600 bg-blue-50"
                         : "text-gray-600 hover:text-gray-900 hover:bg-gray-50",
                     )}
                   >
-                    <span className="text-xs sm:text-sm">Gestionar</span>
+                    Gestionar
                     {pathname === "/create-room" && (
                       <div className="absolute bottom-0 left-1/2 transform -translate-x-1/2 w-1 h-1 sm:w-1.5 sm:h-1.5 bg-blue-600 rounded-full -mb-0.5 sm:-mb-1"></div>
                     )}
@@ -61,37 +63,39 @@ const Header = ({ session }: { session: Session }) => {
                 <Link
                   href="/room-list"
                   className={cn(
-                    "relative px-1.5 py-1 sm:px-3 sm:py-2 text-xs sm:text-sm font-medium transition-all duration-200 no-underline rounded-md",
+                    "relative px-1 py-1 sm:px-3 sm:py-2 text-xs sm:text-sm font-medium transition-all duration-200 no-underline rounded-md whitespace-nowrap",
                     pathname === "/room-list"
                       ? "text-blue-600 bg-blue-50"
                       : "text-gray-600 hover:text-gray-900 hover:bg-gray-50",
                   )}
                 >
-                  <span className="text-xs sm:text-sm">Habitaciones</span>
+                  Habitaciones
                   {pathname === "/room-list" && (
                     <div className="absolute bottom-0 left-1/2 transform -translate-x-1/2 w-1 h-1 sm:w-1.5 sm:h-1.5 bg-blue-600 rounded-full -mb-0.5 sm:-mb-1"></div>
                   )}
                 </Link>
               </li>
-              <li>
-                {isAdmin && (
+
+              {isAdmin && (
+                <li>
                   <Link
                     href="/room-history"
                     className={cn(
-                      "relative px-1.5 py-1 sm:px-3 sm:py-2 text-xs sm:text-sm font-medium transition-all duration-200 no-underline rounded-md",
+                      "relative px-1 py-1 sm:px-3 sm:py-2 text-xs sm:text-sm font-medium transition-all duration-200 no-underline rounded-md whitespace-nowrap",
                       pathname === "/room-history"
                         ? "text-blue-600 bg-blue-50"
                         : "text-gray-600 hover:text-gray-900 hover:bg-gray-50",
                     )}
                   >
-                    <span className="text-xs sm:text-sm">Historial</span>
+                    Historial
                     {pathname === "/room-history" && (
                       <div className="absolute bottom-0 left-1/2 transform -translate-x-1/2 w-1 h-1 sm:w-1.5 sm:h-1.5 bg-blue-600 rounded-full -mb-0.5 sm:-mb-1"></div>
                     )}
                   </Link>
-                )}
-              </li>
+                </li>
+              )}
 
+              {/* PROFILE */}
               <li>
                 <Link
                   href="/my-profile"
