@@ -39,6 +39,8 @@ interface MonthlyData {
 }
 
 const Page = () => {
+  // MUDANÇA: Separar dados completos dos dados filtrados
+  const [allHistoryData, setAllHistoryData] = useState<HistoryRecord[]>([]);
   const [historyData, setHistoryData] = useState<HistoryRecord[]>([]);
   const [monthlyData, setMonthlyData] = useState<MonthlyData[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -53,7 +55,7 @@ const Page = () => {
     message: string;
   } | null>(null);
 
-  // Função para organizar dados por mês - movida para cima
+  // Função para organizar dados por mês
   const organizeByMonth = useCallback((data: HistoryRecord[]) => {
     const monthsMap = new Map<string, MonthlyData>();
 
@@ -91,38 +93,34 @@ const Page = () => {
     setMonthlyData(sortedMonthlyData);
   }, []);
 
-  // Carregar dados de histórico
-  const loadHistoryData = useCallback(async () => {
+  // MUDANÇA: Carregar dados completos apenas uma vez
+  const loadAllHistoryData = useCallback(async () => {
     setIsLoading(true);
     setAlert(null);
 
     try {
-      const startDate = `${selectedYear}-01-01`;
-      const endDate = `${selectedYear}-12-31`;
-
-      // Usar limite maior para obter todos os dados do ano
-      const result = await getRoomHistory({
-        startDate,
-        endDate,
-        limit: 5000, // Aumentar limite se necessário
-      });
+      // Busca todos os check-ins (sem filtrar por data)
+      const result = await getRoomHistory({ limit: 5000 });
 
       if (result.success && result.data) {
-        const normalizedData = result.data.map((record: any) => ({
-          id: record.id,
-          roomNumber: record.roomNumber,
-          guest1Name: record.guest1Name,
-          guest1Phone: record.guest1Phone ?? undefined,
-          guest2Name: record.guest2Name ?? undefined,
-          guest2Phone: record.guest2Phone ?? undefined,
-          checkoutDate: record.checkoutDate ?? undefined,
-          companyName: record.companyName ?? undefined,
-          roomType: record.roomType,
-          guest1CheckinDate: record.checkinDate,
-        }));
+        // Normaliza os dados
+        const normalizedData: HistoryRecord[] = result.data.map(
+          (record: any) => ({
+            id: record.id,
+            roomNumber: record.roomNumber,
+            guest1Name: record.guest1Name,
+            guest1Phone: record.guest1Phone ?? undefined,
+            guest2Name: record.guest2Name ?? undefined,
+            guest2Phone: record.guest2Phone ?? undefined,
+            checkoutDate: record.checkoutDate ?? undefined,
+            companyName: record.companyName ?? undefined,
+            roomType: record.roomType,
+            guest1CheckinDate: record.checkinDate,
+          }),
+        );
 
-        setHistoryData(normalizedData);
-        organizeByMonth(normalizedData);
+        // MUDANÇA: Salvar dados completos separadamente
+        setAllHistoryData(normalizedData);
       } else {
         setAlert({
           type: "error",
@@ -138,12 +136,30 @@ const Page = () => {
     } finally {
       setIsLoading(false);
     }
-  }, [selectedYear, organizeByMonth]);
+  }, []);
 
-  // Efeitos
+  // MUDANÇA: Nova função para filtrar por ano
+  const filterDataByYear = useCallback(() => {
+    if (allHistoryData.length === 0) return;
+
+    const filteredByYear = allHistoryData.filter(
+      (record) =>
+        new Date(record.guest1CheckinDate).getFullYear() === selectedYear,
+    );
+
+    setHistoryData(filteredByYear);
+    organizeByMonth(filteredByYear);
+  }, [allHistoryData, selectedYear, organizeByMonth]);
+
+  // MUDANÇA: Carregar dados completos apenas uma vez na inicialização
   useEffect(() => {
-    loadHistoryData();
-  }, [loadHistoryData]);
+    loadAllHistoryData();
+  }, [loadAllHistoryData]);
+
+  // MUDANÇA: Filtrar por ano quando os dados ou o ano mudam
+  useEffect(() => {
+    filterDataByYear();
+  }, [filterDataByYear]);
 
   // Funções auxiliares
   const toggleMonth = (monthKey: string) => {
@@ -189,23 +205,30 @@ const Page = () => {
       .filter((monthData) => monthData.records.length > 0);
   }, [monthlyData, searchTerm]);
 
-  // Anos disponíveis
+  // MUDANÇA: Anos disponíveis baseados em TODOS os dados, não apenas os filtrados
   const availableYears = useMemo(() => {
+    if (allHistoryData.length === 0) {
+      // Se não há dados, pelo menos mostrar o ano atual
+      return [new Date().getFullYear()];
+    }
+
     const years = Array.from(
       new Set(
-        historyData.map((record) =>
+        allHistoryData.map((record) =>
           new Date(record.guest1CheckinDate).getFullYear(),
         ),
       ),
     ).sort((a, b) => b - a);
 
     // Adicionar o ano atual se não estiver na lista
-    if (!years.includes(new Date().getFullYear())) {
-      years.unshift(new Date().getFullYear());
+    const currentYear = new Date().getFullYear();
+    if (!years.includes(currentYear)) {
+      years.unshift(currentYear);
+      years.sort((a, b) => b - a);
     }
 
     return years;
-  }, [historyData]);
+  }, [allHistoryData]); // MUDANÇA: Depende de allHistoryData, não de historyData
 
   // Renderização
   if (isLoading) {
