@@ -10,6 +10,7 @@ import {
 import {
   processExcelDownload,
   processMultiSheetExcelDownload,
+  processAnyExcelDownload,
 } from "@/lib/excel";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -28,6 +29,7 @@ import {
   Minimize,
   Download,
   BarChart3,
+  User,
 } from "lucide-react";
 
 interface HistoryRecord {
@@ -36,9 +38,10 @@ interface HistoryRecord {
   companyName?: string;
   guest1Name: string;
   guest1Phone?: string;
+  guest1CheckinDate: string;
   guest2Name?: string;
   guest2Phone?: string;
-  guest1CheckinDate: string;
+  guest2CheckinDate?: string;
   checkoutDate?: string;
   roomType: string;
 }
@@ -72,7 +75,7 @@ const Page = () => {
     data.forEach((record) => {
       const date = new Date(record.guest1CheckinDate);
       const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
-      const monthName = date.toLocaleDateString("es-ES", {
+      const monthName = date.toLocaleDateString("pt-BR", {
         month: "short",
         year: "numeric",
       });
@@ -115,12 +118,13 @@ const Page = () => {
             roomNumber: record.roomNumber,
             guest1Name: record.guest1Name,
             guest1Phone: record.guest1Phone ?? undefined,
+            guest1CheckinDate: record.guest1CheckinDate,
             guest2Name: record.guest2Name ?? undefined,
             guest2Phone: record.guest2Phone ?? undefined,
+            guest2CheckinDate: record.guest2CheckinDate ?? undefined,
             checkoutDate: record.checkoutDate ?? undefined,
             companyName: record.companyName ?? undefined,
             roomType: record.roomType,
-            guest1CheckinDate: record.checkinDate,
           }),
         );
 
@@ -128,14 +132,14 @@ const Page = () => {
       } else {
         setAlert({
           type: "error",
-          message: result.error || "Error al cargar el historial",
+          message: result.error || "Erro ao carregar o histórico",
         });
       }
     } catch (error) {
-      console.error("Error cargando historial:", error);
+      console.error("Erro carregando histórico:", error);
       setAlert({
         type: "error",
-        message: "Error inesperado al cargar los datos",
+        message: "Erro inesperado ao carregar os dados",
       });
     } finally {
       setIsLoading(false);
@@ -174,7 +178,7 @@ const Page = () => {
 
   const formatDate = (dateString: string) => {
     try {
-      return new Date(dateString).toLocaleDateString("es-ES", {
+      return new Date(dateString).toLocaleDateString("pt-BR", {
         day: "2-digit",
         month: "2-digit",
       });
@@ -228,18 +232,18 @@ const Page = () => {
   const handleExportMonth = useCallback(async (monthData: MonthlyData) => {
     try {
       const result = await exportMonthlyHistory(monthData);
-      await processExcelDownload(result);
+      await processAnyExcelDownload(result);
 
       setAlert({
         type: "success",
-        message: `Archivo ${result.fileName} descargado con éxito!`,
+        message: `Arquivo ${result.fileName} baixado com sucesso!`,
       });
     } catch (error) {
-      console.error("Error exportando mes:", error);
+      console.error("Erro exportando mês:", error);
       setAlert({
         type: "error",
         message:
-          error instanceof Error ? error.message : "Error al exportar mes",
+          error instanceof Error ? error.message : "Erro ao exportar mês",
       });
     }
   }, []);
@@ -254,14 +258,14 @@ const Page = () => {
 
       setAlert({
         type: "success",
-        message: `Archivo ${result.fileName} descargado con éxito!`,
+        message: `Arquivo ${result.fileName} baixado com sucesso!`,
       });
     } catch (error) {
-      console.error("Error exportando año:", error);
+      console.error("Erro exportando ano:", error);
       setAlert({
         type: "error",
         message:
-          error instanceof Error ? error.message : "Error al exportar año",
+          error instanceof Error ? error.message : "Erro ao exportar ano",
       });
     }
   }, [filteredMonthlyData, selectedYear]);
@@ -269,98 +273,117 @@ const Page = () => {
   const handleExportStats = useCallback(async () => {
     try {
       const result = await exportStatistics(filteredMonthlyData, selectedYear);
-      await processExcelDownload(result);
+      await processAnyExcelDownload(result);
 
       setAlert({
         type: "success",
-        message: `Archivo ${result.fileName} descargado con éxito!`,
+        message: `Arquivo ${result.fileName} baixado com sucesso!`,
       });
     } catch (error) {
-      console.error("Error exportando estadísticas:", error);
+      console.error("Erro exportando estatísticas:", error);
       setAlert({
         type: "error",
         message:
           error instanceof Error
             ? error.message
-            : "Error al exportar estadísticas",
+            : "Erro ao exportar estatísticas",
       });
     }
   }, [filteredMonthlyData, selectedYear]);
 
+  // Componente para exibir informações de um hóspede
+  const GuestInfo = ({
+    guestNumber,
+    name,
+    phone,
+    checkinDate,
+    isCompact = false,
+  }: {
+    guestNumber: 1 | 2;
+    name: string;
+    phone?: string;
+    checkinDate: string;
+    isCompact?: boolean;
+  }) => (
+    <div
+      className={`${isCompact ? "space-y-1" : "space-y-2"} ${guestNumber === 2 ? "border-l-2 border-blue-200 pl-2" : ""}`}
+    >
+      <div className="flex items-center gap-1">
+        <User className="h-3 w-3 text-gray-500" />
+        <span className="text-xs text-gray-500">Hóspede {guestNumber}</span>
+      </div>
+      <div className={`font-medium ${isCompact ? "text-xs" : "text-sm"}`}>
+        {name}
+      </div>
+      {phone && (
+        <a
+          href={`tel:${phone}`}
+          className={`flex items-center gap-1 text-blue-600 hover:text-blue-800 transition-colors ${isCompact ? "text-xs" : "text-sm"}`}
+        >
+          <Phone className="h-3 w-3" />
+          <span>{phone}</span>
+        </a>
+      )}
+      <div
+        className={`text-green-600 font-medium ${isCompact ? "text-xs" : "text-sm"}`}
+      >
+        Check-in: {formatDate(checkinDate)}
+      </div>
+    </div>
+  );
+
   const CompactRecordCard = ({ record }: { record: HistoryRecord }) => (
-    <div className="border-b border-gray-200 py-2 px-1 last:border-b-0">
-      <div className="flex justify-between items-start gap-2">
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-1 mb-1">
-            <span className="font-medium text-sm bg-blue-50 px-1.5 py-0.5 rounded text-blue-700">
-              {record.roomNumber}
-            </span>
-            <span className="text-xs text-gray-500 uppercase">
-              {record.roomType}
-            </span>
-            {record.checkoutDate ? (
-              <CheckCircle className="h-3 w-3 text-green-500" />
-            ) : (
-              <Clock className="h-3 w-3 text-blue-500" />
-            )}
-          </div>
-
-          <div className="text-sm font-medium truncate">
-            {record.guest1Name}
-            {record.guest2Name && (
-              <span className="text-sm text-gray-600 font-medium">
-                {" "}
-                y {record.guest2Name}
-              </span>
-            )}
-          </div>
-
-          {record.companyName && (
-            <div className="text-xs text-blue-600 truncate flex items-center gap-1">
-              <Building2 className="h-3 w-3" />
-              {record.companyName}
-            </div>
+    <div className="border-b border-gray-200 py-3 px-2 last:border-b-0">
+      <div className="flex justify-between items-start gap-2 mb-2">
+        <div className="flex items-center gap-2">
+          <span className="font-medium text-sm bg-blue-50 px-2 py-1 rounded text-blue-700">
+            {record.roomNumber}
+          </span>
+          <span className="text-xs text-gray-500 uppercase">
+            {record.roomType}
+          </span>
+          {record.checkoutDate ? (
+            <CheckCircle className="h-3 w-3 text-green-500" />
+          ) : (
+            <Clock className="h-3 w-3 text-blue-500" />
           )}
         </div>
 
-        <div className="text-right text-xs text-gray-500 flex-shrink-0">
-          <div className="text-green-600 font-medium">
-            {formatDate(record.guest1CheckinDate)}
+        <div className="text-right text-xs">
+          <div
+            className={`font-medium ${record.checkoutDate ? "text-red-600" : "text-blue-600"}`}
+          >
+            {record.checkoutDate ? formatDate(record.checkoutDate) : "Ativo"}
           </div>
-          <div className="text-red-600">
-            {record.checkoutDate ? formatDate(record.checkoutDate) : "Activo"}
-          </div>
-          {(record.guest1Phone || record.guest2Phone) && (
-            <div className="flex flex-col items-end gap-1 mt-1">
-              {record.guest1Phone && (
-                <a
-                  href={`tel:${record.guest1Phone}`}
-                  className="flex items-center gap-1 text-blue-600 hover:text-blue-800 transition-colors"
-                  title={record.guest1Name}
-                >
-                  <span className="text-xs text-gray-400">1</span>
-                  <Phone className="h-3 w-3" />
-                  <span className="truncate max-w-[70px] text-xs">
-                    {record.guest1Phone}
-                  </span>
-                </a>
-              )}
-              {record.guest2Phone && (
-                <a
-                  href={`tel:${record.guest2Phone}`}
-                  className="flex items-center gap-1 text-blue-600 hover:text-blue-800 transition-colors"
-                  title={record.guest2Name}
-                >
-                  <span className="text-xs text-gray-400">2</span>
-                  <Phone className="h-3 w-3" />
-                  <span className="truncate max-w-[70px] text-xs">
-                    {record.guest2Phone}
-                  </span>
-                </a>
-              )}
-            </div>
-          )}
         </div>
+      </div>
+
+      {record.companyName && (
+        <div className="text-xs text-blue-600 truncate flex items-center gap-1 mb-2">
+          <Building2 className="h-3 w-3" />
+          {record.companyName}
+        </div>
+      )}
+
+      {/* Área dos hóspedes dividida */}
+      <div className={`${record.guest2Name ? "grid grid-cols-2 gap-2" : ""}`}>
+        <GuestInfo
+          guestNumber={1}
+          name={record.guest1Name}
+          phone={record.guest1Phone}
+          checkinDate={record.guest1CheckinDate}
+          isCompact={true}
+        />
+
+        {record.guest2Name && (
+          <GuestInfo
+            guestNumber={2}
+            name={record.guest2Name}
+            phone={record.guest2Phone}
+            checkinDate={record.guest2CheckinDate || record.guest1CheckinDate}
+            isCompact={true}
+          />
+        )}
       </div>
     </div>
   );
@@ -370,7 +393,7 @@ const Page = () => {
       <div className="flex items-center justify-center min-h-screen px-4">
         <div className="text-center">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-2"></div>
-          <p className="text-sm text-gray-600">Cargando...</p>
+          <p className="text-sm text-gray-600">Carregando...</p>
         </div>
       </div>
     );
@@ -381,7 +404,7 @@ const Page = () => {
       <div className="bg-white rounded-lg shadow-sm p-3 sm:p-6">
         <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2 sm:gap-4">
           <div>
-            <h1 className="text-lg sm:text-3xl font-bold">Historial</h1>
+            <h1 className="text-lg sm:text-3xl font-bold">Histórico</h1>
             <div className="flex gap-4 text-xs sm:text-sm text-gray-600 mt-1 sm:hidden">
               <span>
                 {filteredMonthlyData.reduce(
@@ -395,7 +418,7 @@ const Page = () => {
                   (sum, month) => sum + month.totalGuests,
                   0,
                 )}{" "}
-                huéspedes
+                hóspedes
               </span>
             </div>
           </div>
@@ -468,7 +491,7 @@ const Page = () => {
             disabled={historyData.length === 0}
           >
             <BarChart3 className="h-4 w-4" />
-            <span className="hidden sm:inline">Estadísticas</span>
+            <span className="hidden sm:inline">Estatísticas</span>
             <span className="sm:hidden">Stats</span>
           </Button>
         </div>
@@ -498,8 +521,8 @@ const Page = () => {
           <div className="bg-white rounded-lg shadow-sm p-6 text-center">
             <div className="text-gray-500 text-sm">
               {searchTerm
-                ? "No se encontraron resultados."
-                : "No hay registros para este año."}
+                ? "Não foram encontrados resultados."
+                : "Não há registros para este ano."}
             </div>
           </div>
         ) : (
@@ -560,13 +583,7 @@ const Page = () => {
                               Empresa
                             </th>
                             <th className="text-left p-2 font-medium">
-                              Hóspede(s)
-                            </th>
-                            <th className="text-left p-2 font-medium">
-                              Telefone
-                            </th>
-                            <th className="text-left p-2 font-medium">
-                              Check-in
+                              Hóspedes
                             </th>
                             <th className="text-left p-2 font-medium">
                               Check-out
@@ -589,60 +606,36 @@ const Page = () => {
                                   <span className="font-medium bg-blue-50 px-2 py-1 rounded text-blue-700">
                                     {record.roomNumber}
                                   </span>
+                                  <div className="text-xs text-gray-500 mt-1">
+                                    {record.roomType}
+                                  </div>
                                 </td>
                                 <td className="p-2 text-gray-700 truncate max-w-[100px]">
                                   {record.companyName || "-"}
                                 </td>
                                 <td className="p-2">
-                                  <div>
-                                    <div className="font-medium">
-                                      {record.guest1Name}
-                                      {record.guest2Name && (
-                                        <span className="text-gray-600 font-medium">
-                                          {" "}
-                                          & {record.guest2Name}
-                                        </span>
-                                      )}
-                                    </div>
+                                  <div
+                                    className={`${record.guest2Name ? "grid grid-cols-2 gap-3" : ""}`}
+                                  >
+                                    <GuestInfo
+                                      guestNumber={1}
+                                      name={record.guest1Name}
+                                      phone={record.guest1Phone}
+                                      checkinDate={record.guest1CheckinDate}
+                                    />
+
+                                    {record.guest2Name && (
+                                      <GuestInfo
+                                        guestNumber={2}
+                                        name={record.guest2Name}
+                                        phone={record.guest2Phone}
+                                        checkinDate={
+                                          record.guest2CheckinDate ||
+                                          record.guest1CheckinDate
+                                        }
+                                      />
+                                    )}
                                   </div>
-                                </td>
-                                <td className="p-2">
-                                  {(record.guest1Phone ||
-                                    record.guest2Phone) && (
-                                    <div className="text-sm space-y-1">
-                                      {record.guest1Phone && (
-                                        <a
-                                          href={`tel:${record.guest1Phone}`}
-                                          className="flex items-center gap-1 text-blue-600 hover:text-blue-800 transition-colors"
-                                          title={record.guest1Name}
-                                        >
-                                          <span className="text-xs text-gray-400 w-3">
-                                            1
-                                          </span>
-                                          <Phone className="h-3 w-3" />
-                                          <span>{record.guest1Phone}</span>
-                                        </a>
-                                      )}
-                                      {record.guest2Phone && (
-                                        <a
-                                          href={`tel:${record.guest2Phone}`}
-                                          className="flex items-center gap-1 text-blue-600 hover:text-blue-800 transition-colors"
-                                          title={record.guest2Name}
-                                        >
-                                          <span className="text-xs text-gray-400 w-3">
-                                            2
-                                          </span>
-                                          <Phone className="h-3 w-3" />
-                                          <span>{record.guest2Phone}</span>
-                                        </a>
-                                      )}
-                                    </div>
-                                  )}
-                                </td>
-                                <td className="p-2">
-                                  <span className="text-green-700 font-medium">
-                                    {formatDate(record.guest1CheckinDate)}
-                                  </span>
                                 </td>
                                 <td className="p-2">
                                   {record.checkoutDate ? (

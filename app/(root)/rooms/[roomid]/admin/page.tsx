@@ -19,10 +19,11 @@ import { AddSecondGuestForm } from "@/components/AddSecondGuestForm";
 interface FormData {
   guest1Name: string;
   guest1Phone: string;
+  guest1CheckinDate: string;
   guest2Name: string;
   guest2Phone: string;
+  guest2CheckinDate: string;
   company: string;
-  checkinDate: string;
 }
 
 interface AlertState {
@@ -33,10 +34,11 @@ interface AlertState {
 const INITIAL_FORM_DATA: FormData = {
   guest1Name: "",
   guest1Phone: "",
+  guest1CheckinDate: new Date().toISOString().split("T")[0],
   guest2Name: "",
   guest2Phone: "",
+  guest2CheckinDate: new Date().toISOString().split("T")[0],
   company: "",
-  checkinDate: new Date().toISOString().split("T")[0], // data atual inicial
 };
 
 export default function AdminRoomPage() {
@@ -61,11 +63,26 @@ export default function AdminRoomPage() {
 
   const validateFormData = (): { isValid: boolean; error?: string } => {
     if (!formData.guest1Name.trim())
-      return { isValid: false, error: "Nombre del huésped 1 obligatorio" };
+      return { isValid: false, error: "Nome do hóspede 1 é obrigatório" };
     if (formData.guest1Phone && !validatePhone(formData.guest1Phone))
-      return { isValid: false, error: "Teléfono huésped 1 inválido" };
+      return { isValid: false, error: "Telefone do hóspede 1 inválido" };
     if (formData.guest2Phone && !validatePhone(formData.guest2Phone))
-      return { isValid: false, error: "Teléfono huésped 2 inválido" };
+      return { isValid: false, error: "Telefone do hóspede 2 inválido" };
+
+    // Validar data do primeiro hóspede
+    if (!formData.guest1CheckinDate)
+      return {
+        isValid: false,
+        error: "Data de entrada do hóspede 1 é obrigatória",
+      };
+
+    // Se há segundo hóspede, validar sua data
+    if (formData.guest2Name.trim() && !formData.guest2CheckinDate)
+      return {
+        isValid: false,
+        error: "Data de entrada do hóspede 2 é obrigatória",
+      };
+
     return { isValid: true };
   };
 
@@ -77,12 +94,22 @@ export default function AdminRoomPage() {
       : "Free";
   };
 
+  const formatDisplayDate = (dateString?: string | null) => {
+    if (!dateString) return "N/A";
+    try {
+      const date = new Date(dateString);
+      return date.toLocaleDateString("pt-BR");
+    } catch {
+      return dateString;
+    }
+  };
+
   useEffect(() => {
     const fetchRoom = async () => {
       const roomId = Array.isArray(roomid) ? roomid[0] : roomid;
       if (!roomId) {
         setIsLoading(false);
-        showAlert("error", "ID de habitación no proporcionado");
+        showAlert("error", "ID do quarto não fornecido");
         return;
       }
       try {
@@ -92,10 +119,10 @@ export default function AdminRoomPage() {
             ...result.data,
             status: normalizeRoomStatus(result.data.status),
           });
-        } else showAlert("error", result.error || "Habitación no encontrada");
+        } else showAlert("error", result.error || "Quarto não encontrado");
       } catch (e) {
         console.error(e);
-        showAlert("error", "Error al cargar datos de la habitación");
+        showAlert("error", "Erro ao carregar dados do quarto");
       } finally {
         setIsLoading(false);
       }
@@ -103,34 +130,38 @@ export default function AdminRoomPage() {
     fetchRoom();
   }, [roomid, showAlert]);
 
-  const handleInputChange = (f: keyof FormData, v: string) =>
-    setFormData((p) => ({ ...p, [f]: v }));
+  const handleInputChange = (field: keyof FormData, value: string) =>
+    setFormData((prev) => ({ ...prev, [field]: value }));
 
   const resetForm = () => setFormData(INITIAL_FORM_DATA);
 
   const handleAddGuest = async () => {
-    if (!room) return showAlert("error", "Datos de la habitación no cargados");
-    if (!session?.user?.id) return showAlert("error", "Usuario no autenticado");
+    if (!room) return showAlert("error", "Dados do quarto não carregados");
+    if (!session?.user?.id)
+      return showAlert("error", "Usuário não autenticado");
 
-    const val = validateFormData();
-    if (!val.isValid) return showAlert("error", val.error!);
+    const validation = validateFormData();
+    if (!validation.isValid) return showAlert("error", validation.error!);
 
     setIsSubmitting(true);
     try {
-      const result = await checkInRoom({
+      const checkInData: any = {
         roomId: room.id,
         guest1Name: formData.guest1Name.trim(),
-        guest1Phone: formData.guest1Phone || undefined,
-        guest2Name:
-          room.type === "double" ? formData.guest2Name || undefined : undefined,
-        guest2Phone:
-          room.type === "double"
-            ? formData.guest2Phone || undefined
-            : undefined,
-        company: formData.company || undefined,
-        checkinDate: formData.checkinDate || undefined,
+        guest1Phone: formData.guest1Phone.trim() || undefined,
+        guest1CheckinDate: formData.guest1CheckinDate,
+        company: formData.company.trim() || undefined,
         userId: session.user.id,
-      });
+      };
+
+      // Adicionar segundo hóspede se fornecido (só para quartos duplos)
+      if (room.type === "double" && formData.guest2Name.trim()) {
+        checkInData.guest2Name = formData.guest2Name.trim();
+        checkInData.guest2Phone = formData.guest2Phone.trim() || undefined;
+        checkInData.guest2CheckinDate = formData.guest2CheckinDate;
+      }
+
+      const result = await checkInRoom(checkInData);
 
       if (result.success && result.data) {
         setRoom({
@@ -138,56 +169,58 @@ export default function AdminRoomPage() {
           status: normalizeRoomStatus(result.data.status),
         });
         resetForm();
-        showAlert("success", "¡Check-in realizado con éxito!");
-      } else showAlert("error", result.error || "Error al realizar check-in");
+        showAlert("success", "Check-in realizado com sucesso!");
+      } else showAlert("error", result.error || "Erro ao realizar check-in");
     } catch (e) {
       console.error(e);
-      showAlert("error", "Error inesperado al realizar check-in");
+      showAlert("error", "Erro inesperado ao realizar check-in");
     } finally {
       setIsSubmitting(false);
     }
   };
 
   const handleCheckout = async () => {
-    if (!room) return showAlert("error", "Datos de la habitación no cargados");
+    if (!room) return showAlert("error", "Dados do quarto não carregados");
     if (
       !window.confirm(
-        `¿Seguro de realizar checkout de habitación ${room.number}?`,
+        `Tem certeza que deseja fazer checkout do quarto ${room.number}?`,
       )
     )
       return;
 
     setIsSubmitting(true);
     try {
-      const result = await checkoutRoom(room.id);
-      if (result.success && result.data)
+      const result = await checkoutRoom(room.id, session?.user?.id);
+      if (result.success && result.data) {
         setRoom({
           ...result.data,
           status: normalizeRoomStatus(result.data.status),
         });
-      else showAlert("error", result.error || "Error al realizar checkout");
+        showAlert("success", "Checkout realizado com sucesso!");
+      } else showAlert("error", result.error || "Erro ao realizar checkout");
     } catch (e) {
       console.error(e);
-      showAlert("error", "Error inesperado al realizar checkout");
+      showAlert("error", "Erro inesperado ao realizar checkout");
     } finally {
       setIsSubmitting(false);
     }
   };
 
   const handleMarkClean = async () => {
-    if (!room) return showAlert("error", "Datos de la habitación no cargados");
+    if (!room) return showAlert("error", "Dados do quarto não carregados");
     setIsSubmitting(true);
     try {
       const result = await updateRoomStatus(room.id, "Free");
-      if (result.success && result.data)
+      if (result.success && result.data) {
         setRoom({
           ...result.data,
           status: normalizeRoomStatus(result.data.status),
         });
-      else showAlert("error", result.error || "Error al actualizar estado");
+        showAlert("success", "Quarto marcado como limpo!");
+      } else showAlert("error", result.error || "Erro ao atualizar estado");
     } catch (e) {
       console.error(e);
-      showAlert("error", "Error inesperado al actualizar estado");
+      showAlert("error", "Erro inesperado ao atualizar estado");
     } finally {
       setIsSubmitting(false);
     }
@@ -195,28 +228,28 @@ export default function AdminRoomPage() {
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center min-h-[400px]">
+      <div className="flex items-center justify-center min-h-[400px] gap-2">
         <Loader2 className="h-6 w-6 animate-spin" />
-        <span>Cargando...</span>
+        <span>Carregando...</span>
       </div>
     );
   }
 
   if (!room) {
     return (
-      <div className="text-center text-red-600">Habitación no encontrada</div>
+      <div className="text-center text-red-600">Quarto não encontrado</div>
     );
   }
 
   return (
     <div className="max-w-xl mx-auto p-6 space-y-6 bg-white shadow-md rounded-lg">
       <div className="border-b pb-4">
-        <h1 className="text-2xl font-bold mb-2">Habitación {room.number}</h1>
+        <h1 className="text-2xl font-bold mb-2">Quarto {room.number}</h1>
         <div className="flex flex-wrap gap-4 text-sm">
           <span className="text-gray-600">
             Tipo:{" "}
             <span className="font-medium text-gray-800 uppercase">
-              {room.type}
+              {room.type === "single" ? "Solteiro" : "Duplo"}
             </span>
           </span>
           <span className="text-gray-600">
@@ -231,10 +264,10 @@ export default function AdminRoomPage() {
               }`}
             >
               {room.status === "Free"
-                ? "Libre"
+                ? "Livre"
                 : room.status === "Occupied"
-                  ? "Ocupada"
-                  : "Sucio"}
+                  ? "Ocupado"
+                  : "Sujo"}
             </span>
           </span>
         </div>
@@ -268,48 +301,60 @@ export default function AdminRoomPage() {
         <div className="space-y-4">
           <div className="bg-green-50 p-4 rounded-lg border border-green-200">
             <p className="text-green-800 font-medium">
-              🎉 ¡Habitación libre y lista para ocupar!
+              🎉 Quarto livre e pronto para ocupar!
             </p>
           </div>
 
           <div className="space-y-3">
-            <h3 className="font-semibold text-gray-800">Datos del Check-in:</h3>
-            <div className="grid gap-3">
-              <Input
-                placeholder="Nombre del Huésped 1 *"
-                value={formData.guest1Name}
-                onChange={(e) =>
-                  handleInputChange("guest1Name", e.target.value)
-                }
-                disabled={isSubmitting}
-              />
-              <Input
-                placeholder="Teléfono del Huésped 1"
-                value={formData.guest1Phone}
-                onChange={(e) =>
-                  handleInputChange("guest1Phone", e.target.value)
-                }
-                disabled={isSubmitting}
-              />
-              <Input
-                placeholder="Empresa"
-                value={formData.company}
-                onChange={(e) => handleInputChange("company", e.target.value)}
-                disabled={isSubmitting}
-              />
-              <Input
-                type="date"
-                placeholder="Fecha de Entrada"
-                value={formData.checkinDate}
-                onChange={(e) =>
-                  handleInputChange("checkinDate", e.target.value)
-                }
-                disabled={isSubmitting}
-              />
-              {room.type === "double" && (
-                <>
+            <h3 className="font-semibold text-gray-800">Dados do Check-in:</h3>
+
+            {/* Dados do Primeiro Hóspede */}
+            <div className="bg-gray-50 p-4 rounded-lg space-y-3">
+              <h4 className="font-medium text-gray-700 border-b pb-1">
+                Hóspede Principal
+              </h4>
+              <div className="grid gap-3">
+                <Input
+                  placeholder="Nome do Hóspede 1 *"
+                  value={formData.guest1Name}
+                  onChange={(e) =>
+                    handleInputChange("guest1Name", e.target.value)
+                  }
+                  disabled={isSubmitting}
+                />
+                <Input
+                  placeholder="Telefone do Hóspede 1"
+                  value={formData.guest1Phone}
+                  onChange={(e) =>
+                    handleInputChange("guest1Phone", e.target.value)
+                  }
+                  disabled={isSubmitting}
+                />
+                <div className="space-y-1">
+                  <label className="text-sm text-gray-600">
+                    Data de Entrada do Hóspede 1 *
+                  </label>
                   <Input
-                    placeholder="Nombre del Huésped 2"
+                    type="date"
+                    value={formData.guest1CheckinDate}
+                    onChange={(e) =>
+                      handleInputChange("guest1CheckinDate", e.target.value)
+                    }
+                    disabled={isSubmitting}
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Dados do Segundo Hóspede (apenas para quartos duplos) */}
+            {room.type === "double" && (
+              <div className="bg-blue-50 p-4 rounded-lg space-y-3">
+                <h4 className="font-medium text-gray-700 border-b pb-1">
+                  Segundo Hóspede (Opcional)
+                </h4>
+                <div className="grid gap-3">
+                  <Input
+                    placeholder="Nome do Hóspede 2"
                     value={formData.guest2Name}
                     onChange={(e) =>
                       handleInputChange("guest2Name", e.target.value)
@@ -317,15 +362,38 @@ export default function AdminRoomPage() {
                     disabled={isSubmitting}
                   />
                   <Input
-                    placeholder="Teléfono del Huésped 2"
+                    placeholder="Telefone do Hóspede 2"
                     value={formData.guest2Phone}
                     onChange={(e) =>
                       handleInputChange("guest2Phone", e.target.value)
                     }
                     disabled={isSubmitting}
                   />
-                </>
-              )}
+                  <div className="space-y-1">
+                    <label className="text-sm text-gray-600">
+                      Data de Entrada do Hóspede 2
+                    </label>
+                    <Input
+                      type="date"
+                      value={formData.guest2CheckinDate}
+                      onChange={(e) =>
+                        handleInputChange("guest2CheckinDate", e.target.value)
+                      }
+                      disabled={isSubmitting}
+                    />
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Dados Gerais */}
+            <div className="space-y-3">
+              <Input
+                placeholder="Empresa"
+                value={formData.company}
+                onChange={(e) => handleInputChange("company", e.target.value)}
+                disabled={isSubmitting}
+              />
             </div>
 
             <Button
@@ -336,7 +404,7 @@ export default function AdminRoomPage() {
               {isSubmitting ? (
                 <div className="flex items-center gap-2">
                   <Loader2 className="h-4 w-4 animate-spin" />
-                  Procesando Check-in...
+                  Processando Check-in...
                 </div>
               ) : (
                 "Realizar Check-in"
@@ -351,51 +419,85 @@ export default function AdminRoomPage() {
         <div className="space-y-4">
           <div className="bg-red-50 p-4 rounded-lg border border-red-200">
             <h3 className="font-semibold text-red-800 mb-2">
-              🔴 Habitación Ocupada
+              🔴 Quarto Ocupado
             </h3>
-            <div className="space-y-2 text-sm">
-              <p>
-                <span className="font-medium">Huésped:</span> {room.guest1Name}
-              </p>
-              {room.guest1Phone && (
-                <p>
-                  <span className="font-medium">Teléfono:</span>{" "}
-                  {room.guest1Phone}
-                </p>
-              )}
-              {room.company && (
-                <p>
-                  <span className="font-medium">Empresa:</span> {room.company}
-                </p>
-              )}
-              {room.type === "double" && room.guest2Name && (
-                <>
+            <div className="space-y-3 text-sm">
+              {/* Primeiro Hóspede */}
+              <div className="bg-white p-3 rounded border">
+                <h4 className="font-medium text-gray-700 mb-2">
+                  Hóspede Principal
+                </h4>
+                <div className="space-y-1">
                   <p>
-                    <span className="font-medium">Segundo huésped:</span>{" "}
-                    {room.guest2Name}
+                    <span className="font-medium">Nome:</span> {room.guest1Name}
                   </p>
-                  {room.guest2Phone && (
+                  {room.guest1Phone && (
                     <p>
-                      <span className="font-medium">Teléfono:</span>{" "}
-                      {room.guest2Phone}
+                      <span className="font-medium">Telefone:</span>{" "}
+                      {room.guest1Phone}
                     </p>
                   )}
-                </>
+                  {room.guest1CheckinDate && (
+                    <p>
+                      <span className="font-medium">Data de entrada:</span>{" "}
+                      {formatDisplayDate(room.guest1CheckinDate)}
+                    </p>
+                  )}
+                </div>
+              </div>
+
+              {/* Segundo Hóspede */}
+              {room.type === "double" && room.guest2Name && (
+                <div className="bg-white p-3 rounded border">
+                  <h4 className="font-medium text-gray-700 mb-2">
+                    Segundo Hóspede
+                  </h4>
+                  <div className="space-y-1">
+                    <p>
+                      <span className="font-medium">Nome:</span>{" "}
+                      {room.guest2Name}
+                    </p>
+                    {room.guest2Phone && (
+                      <p>
+                        <span className="font-medium">Telefone:</span>{" "}
+                        {room.guest2Phone}
+                      </p>
+                    )}
+                    {room.guest2CheckinDate && (
+                      <p>
+                        <span className="font-medium">Data de entrada:</span>{" "}
+                        {formatDisplayDate(room.guest2CheckinDate)}
+                      </p>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* Informações Gerais */}
+              {room.company && (
+                <div className="bg-white p-3 rounded border">
+                  <p>
+                    <span className="font-medium">Empresa:</span> {room.company}
+                  </p>
+                </div>
               )}
             </div>
           </div>
 
+          {/* Formulário para adicionar segundo hóspede */}
           {room.type === "double" && !room.guest2Name && (
-            <AddSecondGuestForm
-              room={room}
-              onSuccess={(updated) =>
-                setRoom({
-                  ...updated,
-                  status: normalizeRoomStatus(updated.status),
-                })
-              }
-              showAlert={showAlert}
-            />
+            <div className="border-t pt-4">
+              <AddSecondGuestForm
+                room={room}
+                onSuccess={(updated) => {
+                  setRoom({
+                    ...updated,
+                    status: normalizeRoomStatus(updated.status),
+                  });
+                }}
+                showAlert={showAlert}
+              />
+            </div>
           )}
 
           <Button
@@ -406,7 +508,7 @@ export default function AdminRoomPage() {
             {isSubmitting ? (
               <div className="flex items-center gap-2">
                 <Loader2 className="h-4 w-4 animate-spin" />
-                Procesando Checkout...
+                Processando Checkout...
               </div>
             ) : (
               "Realizar Checkout"
@@ -420,11 +522,11 @@ export default function AdminRoomPage() {
         <div className="space-y-4">
           <div className="bg-yellow-50 p-4 rounded-lg border border-yellow-200">
             <h3 className="font-semibold text-yellow-800 mb-1">
-              🧹 Habitación necesita limpieza
+              🧹 Quarto precisa de limpeza
             </h3>
             <p className="text-sm text-yellow-700">
-              Esta habitación ha sido utilizada y necesita ser limpiada antes de
-              la próxima ocupación.
+              Este quarto foi utilizado e precisa ser limpo antes da próxima
+              ocupação.
             </p>
           </div>
           <Button
@@ -435,10 +537,10 @@ export default function AdminRoomPage() {
             {isSubmitting ? (
               <div className="flex items-center gap-2">
                 <Loader2 className="h-4 w-4 animate-spin" />
-                Actualizando estado...
+                Atualizando estado...
               </div>
             ) : (
-              "✅ Marcar como limpia"
+              "✅ Marcar como limpo"
             )}
           </Button>
         </div>

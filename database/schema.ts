@@ -43,19 +43,20 @@ export const RoomHistory = pgTable("room_history", {
 
   guest1Name: text("guest1_name").notNull(),
   guest1Phone: text("guest1_phone"),
+  guest1CheckinDate: date("guest1_checkin_date").defaultNow().notNull(),
 
   guest2Name: text("guest2_name"),
   guest2Phone: text("guest2_phone"),
+  guest2CheckinDate: date("guest2_checkin_date"),
 
-  checkinDate: timestamp("checkin_date").defaultNow().notNull(),
   checkoutDate: timestamp("checkout_date"),
 
   roomType: text("room_type").notNull(), // "single" | "double"
 
   notes: text("notes"),
 
-  createdBy: uuid("created_by"), // ID do usuário que fez o check-in
-  updatedBy: uuid("updated_by"), // ID do usuário que fez o check-out
+  createdBy: uuid("created_by"),
+  updatedBy: uuid("updated_by"),
 
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),

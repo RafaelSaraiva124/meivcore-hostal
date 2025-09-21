@@ -71,6 +71,20 @@
       "when": 1758305242325,
       "tag": "0009_fantastic_nico_minoru",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1758490682717,
+      "tag": "0010_lumpy_energizer",
+      "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1758491283589,
+      "tag": "0011_gifted_hellcat",
+      "breakpoints": true
     }
   ]
 }
