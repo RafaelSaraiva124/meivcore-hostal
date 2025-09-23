@@ -8,9 +8,11 @@ interface HistoryRecord {
   guest1Name: string;
   guest1Phone?: string;
   guest1CheckinDate: string;
+  guest1CheckoutDate?: string;
   guest2Name?: string;
   guest2Phone?: string;
   guest2CheckinDate?: string;
+  guest2CheckoutDate?: string;
   checkoutDate?: string;
   roomType: string;
 }
@@ -45,11 +47,19 @@ function prepareExcelData(records: HistoryRecord[]) {
       "Check-in H1": new Date(record.guest1CheckinDate).toLocaleDateString(
         "pt-BR",
       ),
+      "Check-out H1": record.guest1CheckoutDate
+        ? new Date(record.guest1CheckoutDate).toLocaleDateString("pt-BR")
+        : "Em curso",
       "Hóspede 2": record.guest2Name || "",
       "Telefone 2": record.guest2Phone || "",
       "Check-in H2": record.guest2CheckinDate
         ? new Date(record.guest2CheckinDate).toLocaleDateString("pt-BR")
         : "",
+      "Check-out H2": record.guest2CheckoutDate
+        ? new Date(record.guest2CheckoutDate).toLocaleDateString("pt-BR")
+        : record.guest2Name
+          ? "Em curso"
+          : "",
       "Data Check-out": record.checkoutDate
         ? new Date(record.checkoutDate).toLocaleDateString("pt-BR")
         : "Em curso",
@@ -80,10 +90,10 @@ function prepareDetailedExcelData(records: HistoryRecord[]) {
         "Data Check-in": new Date(record.guest1CheckinDate).toLocaleDateString(
           "pt-BR",
         ),
-        "Data Check-out": record.checkoutDate
-          ? new Date(record.checkoutDate).toLocaleDateString("pt-BR")
+        "Data Check-out": record.guest1CheckoutDate
+          ? new Date(record.guest1CheckoutDate).toLocaleDateString("pt-BR")
           : "Em curso",
-        Status: record.checkoutDate ? "Finalizada" : "Ativa",
+        Status: record.guest1CheckoutDate ? "Finalizada" : "Ativa",
         "ID Reserva": record.id,
       });
 
@@ -99,10 +109,10 @@ function prepareDetailedExcelData(records: HistoryRecord[]) {
           "Data Check-in": record.guest2CheckinDate
             ? new Date(record.guest2CheckinDate).toLocaleDateString("pt-BR")
             : new Date(record.guest1CheckinDate).toLocaleDateString("pt-BR"),
-          "Data Check-out": record.checkoutDate
-            ? new Date(record.checkoutDate).toLocaleDateString("pt-BR")
+          "Data Check-out": record.guest2CheckoutDate
+            ? new Date(record.guest2CheckoutDate).toLocaleDateString("pt-BR")
             : "Em curso",
-          Status: record.checkoutDate ? "Finalizada" : "Ativa",
+          Status: record.guest2CheckoutDate ? "Finalizada" : "Ativa",
           "ID Reserva": record.id,
         });
       }
@@ -119,9 +129,11 @@ const getColumnWidths = () => [
   { wch: 25 }, // Hóspede 1
   { wch: 15 }, // Telefone 1
   { wch: 12 }, // Check-in H1
+  { wch: 12 }, // Check-out H1
   { wch: 25 }, // Hóspede 2
   { wch: 15 }, // Telefone 2
   { wch: 12 }, // Check-in H2
+  { wch: 12 }, // Check-out H2
   { wch: 12 }, // Data Check-out
   { wch: 10 }, // Status
   { wch: 10 }, // Total Hóspedes

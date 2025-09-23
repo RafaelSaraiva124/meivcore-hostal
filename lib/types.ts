@@ -13,8 +13,10 @@ export interface Room {
   guest1Name?: string | null;
   guest1Phone?: string | null;
   guest1CheckinDate?: string | null;
+  guest1CheckoutDate?: string | null;
 
   guest2Name?: string | null;
   guest2Phone?: string | null;
   guest2CheckinDate?: string | null;
+  guest2CheckoutDate?: string | null;
 }

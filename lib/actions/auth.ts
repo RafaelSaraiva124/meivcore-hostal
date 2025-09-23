@@ -76,16 +76,29 @@ export const getRoomRedirect = async (roomId: string, session?: any) => {
   }
 
   try {
-    let role: string | undefined = session?.user?.role;
+    // Debug: Log the session to see its structure
+    console.log("Session data:", JSON.stringify(session, null, 2));
 
+    if (!session?.user) {
+      return {
+        success: false,
+        error: "Sessão inválida ou usuário não encontrado",
+      };
+    }
+
+    let role: string | undefined = session.user.role;
+
+    // If role is not in session, fetch from database
     if (!role) {
-      const userId = session?.user?.id;
+      const userId = session.user.id;
       if (!userId) {
         return {
           success: false,
-          error: "Sessão inválida ou usuário não encontrado",
+          error: "ID do usuário não encontrado na sessão",
         };
       }
+
+      console.log("Fetching role from database for userId:", userId);
 
       const [user] = await db
         .select({ role: users.role })
@@ -100,8 +113,16 @@ export const getRoomRedirect = async (roomId: string, session?: any) => {
       role = user.role;
     }
 
+    console.log("User role determined:", role);
+
+    // Normalize role comparison (case insensitive)
+    const normalizedRole = role?.toLowerCase();
     const redirectUrl =
-      role === "Admin" ? `/rooms/${roomId}/admin` : `/rooms/${roomId}/worker`;
+      normalizedRole === "admin"
+        ? `/rooms/${roomId}/admin`
+        : `/rooms/${roomId}/worker`;
+
+    console.log("Redirecting to:", redirectUrl);
 
     return { success: true, redirectUrl };
   } catch (error) {
@@ -112,7 +133,6 @@ export const getRoomRedirect = async (roomId: string, session?: any) => {
     };
   }
 };
-
 // ==================== VERIFICAÇÃO DE PERMISSÕES ====================
 export async function requireAdmin(userId: string, userRole?: string) {
   try {

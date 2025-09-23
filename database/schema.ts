@@ -26,11 +26,13 @@ export const Rooms = pgTable("Rooms", {
   guest1Name: varchar("guest1_name", { length: 100 }),
   guest1Phone: varchar("guest1_phone", { length: 20 }),
   guest1CheckinDate: date("guest1_checkin_date"),
+  guest1CheckoutDate: date("guest1_checkout_date"),
 
   // Informações do hóspede 2
   guest2Name: varchar("guest2_name", { length: 100 }),
   guest2Phone: varchar("guest2_phone", { length: 20 }),
   guest2CheckinDate: date("guest2_checkin_date"),
+  guest2CheckoutDate: date("guest2_checkout_date"),
 });
 
 export const RoomHistory = pgTable("room_history", {
@@ -44,10 +46,12 @@ export const RoomHistory = pgTable("room_history", {
   guest1Name: text("guest1_name").notNull(),
   guest1Phone: text("guest1_phone"),
   guest1CheckinDate: date("guest1_checkin_date").defaultNow().notNull(),
+  guest1CheckoutDate: date("guest1_checkout_date"),
 
   guest2Name: text("guest2_name"),
   guest2Phone: text("guest2_phone"),
   guest2CheckinDate: date("guest2_checkin_date"),
+  guest2CheckoutDate: date("guest2_checkout_date"),
 
   checkoutDate: timestamp("checkout_date"),
 

@@ -4,6 +4,7 @@ import { db } from "@/database/drizzle";
 import { Rooms, RoomHistory } from "@/database/schema";
 import { eq, desc, sql, and, isNull } from "drizzle-orm";
 import { Room } from "@/lib/types";
+import { toSafeDateString } from "@/lib/utils";
 
 let roomsCache: { data: any; timestamp: number } | null = null;
 const CACHE_DURATION = 5000; // 5 segundos
@@ -68,6 +69,9 @@ export const checkInRoom = async (data: {
   userId?: string;
 }) => {
   try {
+    console.log("=== INÍCIO CHECK-IN ===");
+    console.log("Dados recebidos:", JSON.stringify(data, null, 2));
+
     const [room] = await db
       .select()
       .from(Rooms)
@@ -76,10 +80,40 @@ export const checkInRoom = async (data: {
 
     if (!room) return { success: false, error: "Quarto não encontrado" };
 
+    console.log("Quarto atual:", JSON.stringify(room, null, 2));
+
     // Determinar se é check-in do primeiro ou segundo hóspede
     const isFirstGuestCheckIn = !room.guest1Name;
     const isSecondGuestCheckIn =
       room.guest1Name && !room.guest2Name && data.guest2Name;
+
+    console.log("Flags de check-in:", {
+      isFirstGuestCheckIn,
+      isSecondGuestCheckIn,
+      hasGuest1: !!data.guest1Name,
+      hasGuest2: !!data.guest2Name,
+    });
+
+    // --- Função auxiliar para normalizar datas ---
+    const normalizeDate = (dateInput?: string): string => {
+      if (!dateInput) {
+        const today = new Date().toISOString().split("T")[0];
+        console.log("Data não fornecida, usando hoje:", today);
+        return today;
+      }
+
+      // Usar a função de utilitário corrigida
+      const normalized = toSafeDateString(dateInput);
+      if (normalized) {
+        console.log("Data normalizada:", dateInput, "->", normalized);
+        return normalized;
+      }
+
+      // Fallback para hoje se a data for inválida
+      const today = new Date().toISOString().split("T")[0];
+      console.log("Data inválida:", dateInput, "usando hoje:", today);
+      return today;
+    };
 
     // --- Preparar dados para atualização do quarto ---
     let updatePayload: any = {
@@ -87,41 +121,61 @@ export const checkInRoom = async (data: {
       company: data.company ?? room.company,
     };
 
+    // Normalizar todas as datas antes de usar
+    const guest1CheckinDate = data.guest1CheckinDate
+      ? normalizeDate(data.guest1CheckinDate)
+      : null;
+    const guest2CheckinDate = data.guest2CheckinDate
+      ? normalizeDate(data.guest2CheckinDate)
+      : null;
+
+    console.log("Datas normalizadas:", {
+      guest1CheckinDate,
+      guest2CheckinDate,
+    });
+
     // Check-in do primeiro hóspede
-    if (isFirstGuestCheckIn) {
+    if (isFirstGuestCheckIn && data.guest1Name) {
       updatePayload.guest1Name = data.guest1Name;
       updatePayload.guest1Phone = data.guest1Phone ?? null;
-      updatePayload.guest1CheckinDate =
-        data.guest1CheckinDate ?? new Date().toISOString().split("T")[0];
+      updatePayload.guest1CheckinDate = guest1CheckinDate || normalizeDate();
     }
 
     // Check-in do segundo hóspede (mantém dados do primeiro)
-    if (isSecondGuestCheckIn) {
+    if (isSecondGuestCheckIn && data.guest2Name) {
       updatePayload.guest2Name = data.guest2Name;
       updatePayload.guest2Phone = data.guest2Phone ?? null;
-      updatePayload.guest2CheckinDate =
-        data.guest2CheckinDate ?? new Date().toISOString().split("T")[0];
+      updatePayload.guest2CheckinDate = guest2CheckinDate || normalizeDate();
     }
 
-    // Se ambos os hóspedes foram enviados no mesmo request
+    // Se ambos os hóspedes foram enviados no mesmo request (check-in duplo)
     if (data.guest1Name && data.guest2Name && isFirstGuestCheckIn) {
+      console.log("Check-in duplo detectado");
       updatePayload.guest1Name = data.guest1Name;
       updatePayload.guest1Phone = data.guest1Phone ?? null;
-      updatePayload.guest1CheckinDate =
-        data.guest1CheckinDate ?? new Date().toISOString().split("T")[0];
+      updatePayload.guest1CheckinDate = guest1CheckinDate || normalizeDate();
       updatePayload.guest2Name = data.guest2Name;
       updatePayload.guest2Phone = data.guest2Phone ?? null;
-      updatePayload.guest2CheckinDate =
-        data.guest2CheckinDate ?? new Date().toISOString().split("T")[0];
+      updatePayload.guest2CheckinDate = guest2CheckinDate || normalizeDate();
     }
 
+    console.log(
+      "Payload para atualizar quarto:",
+      JSON.stringify(updatePayload, null, 2),
+    );
+
+    // Atualizar o quarto primeiro
     const [updatedRoom] = await db
       .update(Rooms)
       .set(updatePayload)
       .where(eq(Rooms.id, data.roomId))
       .returning();
 
-    // --- Gerenciar histórico ---
+    console.log("Quarto atualizado:", JSON.stringify(updatedRoom, null, 2));
+
+    // --- GERENCIAR HISTÓRICO ---
+    console.log("=== VERIFICANDO HISTÓRICO EXISTENTE ===");
+
     const [existingHistory] = await db
       .select()
       .from(RoomHistory)
@@ -133,25 +187,83 @@ export const checkInRoom = async (data: {
       )
       .limit(1);
 
+    console.log(
+      "Histórico existente encontrado:",
+      existingHistory ? "SIM" : "NÃO",
+    );
+    if (existingHistory) {
+      console.log(
+        "Dados do histórico existente:",
+        JSON.stringify(existingHistory, null, 2),
+      );
+    }
+
     if (!existingHistory) {
+      console.log("=== CRIANDO NOVO HISTÓRICO ===");
+
       // Criar novo registro no histórico
-      await db.insert(RoomHistory).values({
+      const historyData: any = {
         roomId: data.roomId,
         roomNumber: updatedRoom.number,
         roomType: updatedRoom.type,
         companyName: data.company ?? null,
-
-        guest1Name: data.guest1Name,
-        guest1Phone: data.guest1Phone ?? null,
-        guest1CheckinDate: updatePayload.guest1CheckinDate,
-
-        guest2Name: data.guest2Name ?? null,
-        guest2Phone: data.guest2Phone ?? null,
-        guest2CheckinDate: updatePayload.guest2CheckinDate ?? null,
-
         createdBy: data.userId ?? null,
-      });
+        createdAt: new Date(),
+      };
+
+      // Adicionar dados do primeiro hóspede se existir
+      if (data.guest1Name) {
+        historyData.guest1Name = data.guest1Name;
+        historyData.guest1Phone = data.guest1Phone ?? null;
+        historyData.guest1CheckinDate = updatePayload.guest1CheckinDate;
+        console.log("Adicionando guest1 ao histórico:", {
+          name: historyData.guest1Name,
+          phone: historyData.guest1Phone,
+          checkinDate: historyData.guest1CheckinDate,
+        });
+      }
+
+      // Adicionar dados do segundo hóspede se existir
+      if (data.guest2Name) {
+        historyData.guest2Name = data.guest2Name;
+        historyData.guest2Phone = data.guest2Phone ?? null;
+        historyData.guest2CheckinDate = updatePayload.guest2CheckinDate;
+        console.log("Adicionando guest2 ao histórico:", {
+          name: historyData.guest2Name,
+          phone: historyData.guest2Phone,
+          checkinDate: historyData.guest2CheckinDate,
+        });
+      }
+
+      console.log(
+        "Dados completos do histórico a serem inseridos:",
+        JSON.stringify(historyData, null, 2),
+      );
+
+      try {
+        const insertedHistory = await db
+          .insert(RoomHistory)
+          .values(historyData)
+          .returning();
+        console.log(
+          "✅ HISTÓRICO CRIADO COM SUCESSO:",
+          JSON.stringify(insertedHistory[0], null, 2),
+        );
+      } catch (historyError) {
+        console.error("❌ ERRO AO INSERIR HISTÓRICO:", historyError);
+        console.error(
+          "Dados que causaram erro:",
+          JSON.stringify(historyData, null, 2),
+        );
+        const errorMessage =
+          historyError instanceof Error
+            ? historyError.message
+            : String(historyError);
+        throw new Error("Falha ao inserir histórico: " + errorMessage);
+      }
     } else {
+      console.log("=== ATUALIZANDO HISTÓRICO EXISTENTE ===");
+
       // Atualizar histórico existente (para adicionar segundo hóspede)
       const historyUpdate: any = {
         updatedBy: data.userId ?? null,
@@ -163,24 +275,54 @@ export const checkInRoom = async (data: {
         historyUpdate.guest2Name = data.guest2Name;
         historyUpdate.guest2Phone = data.guest2Phone ?? null;
         historyUpdate.guest2CheckinDate = updatePayload.guest2CheckinDate;
+        console.log("Atualizando com dados do guest2:", {
+          name: historyUpdate.guest2Name,
+          phone: historyUpdate.guest2Phone,
+          checkinDate: historyUpdate.guest2CheckinDate,
+        });
       }
 
       // Atualizar empresa se fornecida
       if (data.company) {
         historyUpdate.companyName = data.company;
+        console.log("Atualizando empresa:", data.company);
       }
 
-      await db
-        .update(RoomHistory)
-        .set(historyUpdate)
-        .where(eq(RoomHistory.id, existingHistory.id));
+      console.log(
+        "Dados de atualização do histórico:",
+        JSON.stringify(historyUpdate, null, 2),
+      );
+
+      try {
+        const updatedHistoryResult = await db
+          .update(RoomHistory)
+          .set(historyUpdate)
+          .where(eq(RoomHistory.id, existingHistory.id))
+          .returning();
+
+        console.log(
+          "✅ HISTÓRICO ATUALIZADO COM SUCESSO:",
+          JSON.stringify(updatedHistoryResult[0], null, 2),
+        );
+      } catch (updateError) {
+        console.error("❌ ERRO AO ATUALIZAR HISTÓRICO:", updateError);
+        const errorMessage =
+          updateError instanceof Error
+            ? updateError.message
+            : String(updateError);
+        throw new Error("Falha ao atualizar histórico: " + errorMessage);
+      }
     }
 
+    // Limpar cache e retornar
     roomsCache = null;
+    console.log("=== CHECK-IN CONCLUÍDO COM SUCESSO ===");
     return { success: true, data: updatedRoom };
   } catch (e) {
-    console.error("Erro ao fazer check-in:", e);
-    return { success: false, error: "Erro ao fazer check-in" };
+    console.error("❌ ERRO GERAL NO CHECK-IN:", e);
+    console.error("Stack trace:", e instanceof Error ? e.stack : String(e));
+    const errorMessage = e instanceof Error ? e.message : String(e);
+    return { success: false, error: "Erro ao fazer check-in: " + errorMessage };
   }
 };
 
@@ -287,7 +429,7 @@ export const updateRoomStatus = async (
   }
 };
 
-// Checkout
+// Checkout completo (ambos os hóspedes) - versão atualizada
 export const checkoutRoom = async (roomId: string, userId?: string) => {
   try {
     const currentRoom = await db
@@ -302,10 +444,14 @@ export const checkoutRoom = async (roomId: string, userId?: string) => {
 
     // Só atualizar histórico se houver hóspedes
     if (currentRoom[0].guest1Name || currentRoom[0].guest2Name) {
+      const checkoutDate = new Date().toISOString().split("T")[0];
+
       await db
         .update(RoomHistory)
         .set({
           checkoutDate: new Date(),
+          guest1CheckoutDate: currentRoom[0].guest1Name ? checkoutDate : null,
+          guest2CheckoutDate: currentRoom[0].guest2Name ? checkoutDate : null,
           updatedBy: userId || null,
           updatedAt: new Date(),
         })
@@ -321,9 +467,11 @@ export const checkoutRoom = async (roomId: string, userId?: string) => {
         guest1Name: null,
         guest1Phone: null,
         guest1CheckinDate: null,
+        guest1CheckoutDate: new Date().toISOString().split("T")[0],
         guest2Name: null,
         guest2Phone: null,
         guest2CheckinDate: null,
+        guest2CheckoutDate: new Date().toISOString().split("T")[0],
         company: null,
       })
       .where(eq(Rooms.id, roomId))
@@ -389,23 +537,23 @@ export const getRoomHistory = async (filters?: {
     // Filtra por data de check-in (considera ambos os hóspedes)
     if (filters?.startDate) {
       whereConditions.push(
-        sql`(${RoomHistory.guest1CheckinDate} >= ${filters.startDate} OR 
-            (${RoomHistory.guest2CheckinDate} IS NOT NULL AND ${RoomHistory.guest2CheckinDate} >= ${filters.startDate}))`,
+        sql`(${RoomHistory.guest1CheckinDate} >= ${filters.startDate} OR
+              (${RoomHistory.guest2CheckinDate} IS NOT NULL AND ${RoomHistory.guest2CheckinDate} >= ${filters.startDate}))`,
       );
     }
 
     if (filters?.endDate) {
       whereConditions.push(
-        sql`(${RoomHistory.guest1CheckinDate} <= ${filters.endDate} OR 
-            (${RoomHistory.guest2CheckinDate} IS NOT NULL AND ${RoomHistory.guest2CheckinDate} <= ${filters.endDate}))`,
+        sql`(${RoomHistory.guest1CheckinDate} <= ${filters.endDate} OR
+              (${RoomHistory.guest2CheckinDate} IS NOT NULL AND ${RoomHistory.guest2CheckinDate} <= ${filters.endDate}))`,
       );
     }
 
     // Busca por nome do hóspede (em ambos os campos)
     if (filters?.guestName) {
       whereConditions.push(
-        sql`(LOWER(${RoomHistory.guest1Name}) LIKE LOWER(${"%" + filters.guestName + "%"}) OR 
-            (${RoomHistory.guest2Name} IS NOT NULL AND LOWER(${RoomHistory.guest2Name}) LIKE LOWER(${"%" + filters.guestName + "%"})))`,
+        sql`(LOWER(${RoomHistory.guest1Name}) LIKE LOWER(${"%" + filters.guestName + "%"}) OR
+              (${RoomHistory.guest2Name} IS NOT NULL AND LOWER(${RoomHistory.guest2Name}) LIKE LOWER(${"%" + filters.guestName + "%"})))`,
       );
     }
 
@@ -438,15 +586,15 @@ export const getHistoryStats = async (filters?: {
 
     if (filters?.startDate) {
       whereConditions.push(
-        sql`(${RoomHistory.guest1CheckinDate} >= ${filters.startDate} OR 
-            (${RoomHistory.guest2CheckinDate} IS NOT NULL AND ${RoomHistory.guest2CheckinDate} >= ${filters.startDate}))`,
+        sql`(${RoomHistory.guest1CheckinDate} >= ${filters.startDate} OR
+              (${RoomHistory.guest2CheckinDate} IS NOT NULL AND ${RoomHistory.guest2CheckinDate} >= ${filters.startDate}))`,
       );
     }
 
     if (filters?.endDate) {
       whereConditions.push(
-        sql`(${RoomHistory.guest1CheckinDate} <= ${filters.endDate} OR 
-            (${RoomHistory.guest2CheckinDate} IS NOT NULL AND ${RoomHistory.guest2CheckinDate} <= ${filters.endDate}))`,
+        sql`(${RoomHistory.guest1CheckinDate} <= ${filters.endDate} OR
+              (${RoomHistory.guest2CheckinDate} IS NOT NULL AND ${RoomHistory.guest2CheckinDate} <= ${filters.endDate}))`,
       );
     }
 
@@ -549,6 +697,126 @@ export const getFilteredRooms = async (filters?: {
   } catch (error) {
     console.error("Erro ao buscar quartos filtrados:", error);
     return { success: false, error: "Erro ao buscar quartos filtrados" };
+  }
+};
+
+// Checkout do primeiro hóspede apenas
+export const checkoutFirstGuest = async (roomId: string, userId?: string) => {
+  try {
+    const currentRoom = await db
+      .select()
+      .from(Rooms)
+      .where(eq(Rooms.id, roomId))
+      .limit(1);
+
+    if (!currentRoom[0]) {
+      return { success: false, error: "Quarto não encontrado" };
+    }
+
+    if (!currentRoom[0].guest1Name) {
+      return { success: false, error: "Não há primeiro hóspede no quarto" };
+    }
+
+    // Atualizar histórico do primeiro hóspede
+    await db
+      .update(RoomHistory)
+      .set({
+        guest1CheckoutDate: new Date().toISOString().split("T")[0],
+        updatedBy: userId || null,
+        updatedAt: new Date(),
+      })
+      .where(
+        and(eq(RoomHistory.roomId, roomId), isNull(RoomHistory.checkoutDate)),
+      );
+
+    // Atualizar quarto - remover primeiro hóspede
+    const updateData: any = {
+      guest1Name: null,
+      guest1Phone: null,
+      guest1CheckinDate: null,
+      guest1CheckoutDate: new Date().toISOString().split("T")[0],
+    };
+
+    // Se não há segundo hóspede, marcar quarto como sujo
+    if (!currentRoom[0].guest2Name) {
+      updateData.status = "Dirty";
+      updateData.company = null;
+    }
+
+    const [updatedRoom] = await db
+      .update(Rooms)
+      .set(updateData)
+      .where(eq(Rooms.id, roomId))
+      .returning();
+
+    roomsCache = null;
+    return { success: true, data: JSON.parse(JSON.stringify(updatedRoom)) };
+  } catch (error) {
+    console.error("Erro ao fazer checkout do primeiro hóspede:", error);
+    return {
+      success: false,
+      error: "Erro ao fazer checkout do primeiro hóspede",
+    };
+  }
+};
+
+// Checkout do segundo hóspede apenas
+export const checkoutSecondGuest = async (roomId: string, userId?: string) => {
+  try {
+    const currentRoom = await db
+      .select()
+      .from(Rooms)
+      .where(eq(Rooms.id, roomId))
+      .limit(1);
+
+    if (!currentRoom[0]) {
+      return { success: false, error: "Quarto não encontrado" };
+    }
+
+    if (!currentRoom[0].guest2Name) {
+      return { success: false, error: "Não há segundo hóspede no quarto" };
+    }
+
+    // Atualizar histórico do segundo hóspede
+    await db
+      .update(RoomHistory)
+      .set({
+        guest2CheckoutDate: new Date().toISOString().split("T")[0],
+        updatedBy: userId || null,
+        updatedAt: new Date(),
+      })
+      .where(
+        and(eq(RoomHistory.roomId, roomId), isNull(RoomHistory.checkoutDate)),
+      );
+
+    // Atualizar quarto - remover segundo hóspede
+    const updateData: any = {
+      guest2Name: null,
+      guest2Phone: null,
+      guest2CheckinDate: null,
+      guest2CheckoutDate: new Date().toISOString().split("T")[0],
+    };
+
+    // Se não há primeiro hóspede, marcar quarto como sujo
+    if (!currentRoom[0].guest1Name) {
+      updateData.status = "Dirty";
+      updateData.company = null;
+    }
+
+    const [updatedRoom] = await db
+      .update(Rooms)
+      .set(updateData)
+      .where(eq(Rooms.id, roomId))
+      .returning();
+
+    roomsCache = null;
+    return { success: true, data: JSON.parse(JSON.stringify(updatedRoom)) };
+  } catch (error) {
+    console.error("Erro ao fazer checkout do segundo hóspede:", error);
+    return {
+      success: false,
+      error: "Erro ao fazer checkout do segundo hóspede",
+    };
   }
 };
 

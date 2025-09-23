@@ -50,12 +50,12 @@ const RoomListPage = () => {
       else
         setAlert({
           type: "error",
-          message: result.error || "Erro ao carregar quartos",
+          message: result.error || "Error al cargar habitaciones",
         });
     } catch {
       setAlert({
         type: "error",
-        message: "Erro inesperado ao carregar quartos",
+        message: "Error inesperado al cargar habitaciones",
       });
     } finally {
       setIsLoading(false);
@@ -76,24 +76,24 @@ const RoomListPage = () => {
       } else {
         setAlert({
           type: "error",
-          message: data.error || "Não foi possível redirecionar",
+          message: data.error || "No fue posible redirigir",
         });
       }
     } catch {
       setAlert({
         type: "error",
-        message: "Erro de rede ao redirecionar",
+        message: "Error de red al redirigir",
       });
     }
   };
 
   if (isLoading)
-    return <p className="text-center mt-6">Carregando quartos...</p>;
+    return <p className="text-center mt-6">Cargando habitaciones...</p>;
 
   return (
     <div className="max-w-7xl mx-auto p-4 sm:p-6">
       <h1 className="text-xl sm:text-2xl font-bold mb-4 text-center sm:text-left">
-        Lista de Quartos
+        Lista de Habitaciones
       </h1>
 
       {/* Filtros */}
@@ -108,9 +108,9 @@ const RoomListPage = () => {
             className="border rounded px-2 py-1 text-xs sm:text-sm"
           >
             <option value="All">Todos</option>
-            <option value="Free">Livre</option>
+            <option value="Free">Libre</option>
             <option value="Occupied">Ocupado</option>
-            <option value="Dirty">Sujo</option>
+            <option value="Dirty">Sucio</option>
           </select>
         </div>
 
@@ -133,11 +133,11 @@ const RoomListPage = () => {
             setSortOrder("asc");
           }}
         >
-          Limpar filtros
+          Limpiar filtros
         </button>
       </div>
 
-      {/* Alert */}
+      {/* Alerta */}
       {alert && (
         <Alert
           className={`mb-4 ${alert.type === "success" ? "border-green-200 bg-green-50" : "border-red-200 bg-red-50"}`}
@@ -157,9 +157,9 @@ const RoomListPage = () => {
         </Alert>
       )}
 
-      {/* Tabela de quartos */}
+      {/* Tabla de habitaciones */}
       {rooms.length === 0 ? (
-        <p className="text-center mt-4">Nenhum quarto encontrado.</p>
+        <p className="text-center mt-4">No se encontraron habitaciones.</p>
       ) : (
         <div className="overflow-x-auto">
           <table className="w-full border-collapse border border-gray-200 text-xs sm:text-sm">
@@ -167,7 +167,7 @@ const RoomListPage = () => {
               <tr className="bg-gray-50">
                 <th className="border border-gray-200 p-2 text-left">Nº</th>
                 <th className="border border-gray-200 p-2 text-left">Tipo</th>
-                <th className="border border-gray-200 p-2 text-left">Status</th>
+                <th className="border border-gray-200 p-2 text-left">Estado</th>
               </tr>
             </thead>
             <tbody>
@@ -188,15 +188,15 @@ const RoomListPage = () => {
                       {safeRoom.number}
                     </td>
                     <td className="border border-gray-200 p-2 capitalize">
-                      {safeRoom.type === "single" ? "Individual" : "Duplo"}
+                      {safeRoom.type === "single" ? "Individual" : "Doble"}
                     </td>
                     <td className="border border-gray-200 p-2">
                       <Badge className={getStatusColor(safeRoom.status)}>
                         {safeRoom.status === "Free"
-                          ? "Livre"
+                          ? "Libre"
                           : safeRoom.status === "Occupied"
                             ? "Ocupado"
-                            : "Sujo"}
+                            : "Sucio"}
                       </Badge>
                     </td>
                   </tr>

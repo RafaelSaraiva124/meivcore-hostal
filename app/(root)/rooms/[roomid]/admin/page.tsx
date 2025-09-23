@@ -7,6 +7,8 @@ import {
   getRoomById,
   checkInRoom,
   checkoutRoom,
+  checkoutFirstGuest,
+  checkoutSecondGuest,
   updateRoomStatus,
 } from "@/lib/actions/rooms";
 import { Room, RoomStatus } from "@/lib/types";
@@ -98,7 +100,7 @@ export default function AdminRoomPage() {
     if (!dateString) return "N/A";
     try {
       const date = new Date(dateString);
-      return date.toLocaleDateString("pt-BR");
+      return date.toLocaleDateString("es");
     } catch {
       return dateString;
     }
@@ -183,7 +185,7 @@ export default function AdminRoomPage() {
     if (!room) return showAlert("error", "Dados do quarto não carregados");
     if (
       !window.confirm(
-        `Tem certeza que deseja fazer checkout do quarto ${room.number}?`,
+        `Tem certeza que deseja fazer checkout completo do quarto ${room.number}?`,
       )
     )
       return;
@@ -196,7 +198,71 @@ export default function AdminRoomPage() {
           ...result.data,
           status: normalizeRoomStatus(result.data.status),
         });
-        showAlert("success", "Checkout realizado com sucesso!");
+        showAlert("success", "Checkout completo realizado com sucesso!");
+      } else showAlert("error", result.error || "Erro ao realizar checkout");
+    } catch (e) {
+      console.error(e);
+      showAlert("error", "Erro inesperado ao realizar checkout");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleCheckoutFirstGuest = async () => {
+    if (!room) return showAlert("error", "Dados do quarto não carregados");
+    if (
+      !window.confirm(
+        `Tem certeza que deseja fazer checkout apenas do primeiro hóspede (${room.guest1Name})?`,
+      )
+    )
+      return;
+
+    setIsSubmitting(true);
+    try {
+      const result = await checkoutFirstGuest(room.id, session?.user?.id);
+      if (result.success && result.data) {
+        // 🔑 Atualizar estado com dados do backend
+        setRoom({
+          ...result.data,
+          status: normalizeRoomStatus(result.data.status),
+        });
+
+        showAlert(
+          "success",
+          "Checkout do primeiro hóspede realizado com sucesso!",
+        );
+      } else {
+        showAlert("error", result.error || "Erro ao realizar checkout");
+      }
+    } catch (e) {
+      console.error(e);
+      showAlert("error", "Erro inesperado ao realizar checkout");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleCheckoutSecondGuest = async () => {
+    if (!room) return showAlert("error", "Dados do quarto não carregados");
+    if (
+      !window.confirm(
+        `Tem certeza que deseja fazer checkout apenas do segundo hóspede (${room.guest2Name})?`,
+      )
+    )
+      return;
+
+    setIsSubmitting(true);
+    try {
+      const result = await checkoutSecondGuest(room.id, session?.user?.id);
+      if (result.success && result.data) {
+        setRoom({
+          ...result.data,
+          status: normalizeRoomStatus(result.data.status),
+        });
+        showAlert(
+          "success",
+          "Checkout do segundo hóspede realizado com sucesso!",
+        );
       } else showAlert("error", result.error || "Erro ao realizar checkout");
     } catch (e) {
       console.error(e);
@@ -500,20 +566,95 @@ export default function AdminRoomPage() {
             </div>
           )}
 
-          <Button
-            className="w-full bg-red-500 hover:bg-red-600 disabled:opacity-50"
-            onClick={handleCheckout}
-            disabled={isSubmitting}
-          >
-            {isSubmitting ? (
-              <div className="flex items-center gap-2">
-                <Loader2 className="h-4 w-4 animate-spin" />
-                Processando Checkout...
-              </div>
-            ) : (
-              "Realizar Checkout"
+          {/* Botões de Checkout */}
+          <div className="space-y-3">
+            {/* Para quartos SOLTEIRO - botão único de checkout */}
+            {room.type === "single" && (
+              <Button
+                className="w-full bg-red-500 hover:bg-red-600 disabled:opacity-50"
+                onClick={handleCheckout}
+                disabled={isSubmitting || !room.guest1Name}
+              >
+                {isSubmitting ? (
+                  <div className="flex items-center gap-2">
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    Processando Checkout...
+                  </div>
+                ) : (
+                  "Realizar Checkout"
+                )}
+              </Button>
             )}
-          </Button>
+
+            {/* Para quartos DUPLOS - apenas botões individuais */}
+            {room.type === "double" && (
+              <>
+                {/* Botões individuais quando há ambos hóspedes */}
+                {room.guest1Name && room.guest2Name && (
+                  <div className="grid grid-cols-2 gap-2">
+                    <Button
+                      className="bg-orange-500 hover:bg-orange-600 disabled:opacity-50 text-sm"
+                      onClick={handleCheckoutFirstGuest}
+                      disabled={isSubmitting}
+                    >
+                      {isSubmitting ? (
+                        <Loader2 className="h-3 w-3 animate-spin" />
+                      ) : (
+                        `Checkout: ${room.guest1Name.split(" ")[0]}`
+                      )}
+                    </Button>
+                    <Button
+                      className="bg-purple-500 hover:bg-purple-600 disabled:opacity-50 text-sm"
+                      onClick={handleCheckoutSecondGuest}
+                      disabled={isSubmitting}
+                    >
+                      {isSubmitting ? (
+                        <Loader2 className="h-3 w-3 animate-spin" />
+                      ) : (
+                        `Checkout: ${room.guest2Name.split(" ")[0]}`
+                      )}
+                    </Button>
+                  </div>
+                )}
+
+                {/* Botão individual quando há apenas o primeiro hóspede */}
+                {room.guest1Name && !room.guest2Name && (
+                  <Button
+                    className="w-full bg-blue-400 hover:bg-blue-500 disabled:opacity-50"
+                    onClick={handleCheckoutFirstGuest}
+                    disabled={isSubmitting}
+                  >
+                    {isSubmitting ? (
+                      <div className="flex items-center gap-2">
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                        Processando Checkout...
+                      </div>
+                    ) : (
+                      `Checkout: ${room.guest1Name}`
+                    )}
+                  </Button>
+                )}
+
+                {/* Botão individual quando há apenas o segundo hóspede */}
+                {!room.guest1Name && room.guest2Name && (
+                  <Button
+                    className="w-full bg-blue-400 hover:bg-blue-500 disabled:opacity-50"
+                    onClick={handleCheckoutSecondGuest}
+                    disabled={isSubmitting}
+                  >
+                    {isSubmitting ? (
+                      <div className="flex items-center gap-2">
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                        Processando Checkout...
+                      </div>
+                    ) : (
+                      `Checkout: ${room.guest2Name}`
+                    )}
+                  </Button>
+                )}
+              </>
+            )}
+          </div>
         </div>
       )}
 

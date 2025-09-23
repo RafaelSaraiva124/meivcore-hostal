@@ -30,6 +30,7 @@ import {
   Download,
   BarChart3,
   User,
+  ArrowRight,
 } from "lucide-react";
 
 interface HistoryRecord {
@@ -39,9 +40,11 @@ interface HistoryRecord {
   guest1Name: string;
   guest1Phone?: string;
   guest1CheckinDate: string;
+  guest1CheckoutDate?: string;
   guest2Name?: string;
   guest2Phone?: string;
   guest2CheckinDate?: string;
+  guest2CheckoutDate?: string;
   checkoutDate?: string;
   roomType: string;
 }
@@ -119,9 +122,11 @@ const Page = () => {
             guest1Name: record.guest1Name,
             guest1Phone: record.guest1Phone ?? undefined,
             guest1CheckinDate: record.guest1CheckinDate,
+            guest1CheckoutDate: record.guest1CheckoutDate ?? undefined,
             guest2Name: record.guest2Name ?? undefined,
             guest2Phone: record.guest2Phone ?? undefined,
             guest2CheckinDate: record.guest2CheckinDate ?? undefined,
+            guest2CheckoutDate: record.guest2CheckoutDate ?? undefined,
             checkoutDate: record.checkoutDate ?? undefined,
             companyName: record.companyName ?? undefined,
             roomType: record.roomType,
@@ -291,269 +296,380 @@ const Page = () => {
     }
   }, [filteredMonthlyData, selectedYear]);
 
-  // Componente para exibir informações de um hóspede
-  const GuestInfo = ({
-    guestNumber,
+  const getReservationStatus = (record: HistoryRecord) => {
+    if (record.roomType === "single") {
+      return record.guest1CheckoutDate || record.checkoutDate
+        ? "Terminado"
+        : "Ativa";
+    }
+
+    if (record.roomType === "double") {
+      const guest1Active = !record.guest1CheckoutDate;
+      const guest2Active = record.guest2Name && !record.guest2CheckoutDate;
+
+      if (record.checkoutDate) return "Terminado";
+
+      if (
+        record.guest1CheckoutDate &&
+        (!record.guest2Name || record.guest2CheckoutDate)
+      ) {
+        return "Terminado";
+      }
+
+      if (guest1Active || guest2Active) return "Ativa";
+
+      return "Terminado";
+    }
+
+    return record.checkoutDate ? "Terminado" : "Ativa";
+  };
+
+  // Componente redesenhado para as informações de hóspede
+  const GuestCard = ({
     name,
     phone,
     checkinDate,
+    checkoutDate,
+    guestNumber,
     isCompact = false,
   }: {
-    guestNumber: 1 | 2;
     name: string;
     phone?: string;
     checkinDate: string;
+    checkoutDate?: string;
+    guestNumber: 1 | 2;
     isCompact?: boolean;
   }) => (
-    <div
-      className={`${isCompact ? "space-y-1" : "space-y-2"} ${guestNumber === 2 ? "border-l-2 border-blue-200 pl-2" : ""}`}
-    >
-      <div className="flex items-center gap-1">
-        <User className="h-3 w-3 text-gray-500" />
-        <span className="text-xs text-gray-500">Hóspede {guestNumber}</span>
-      </div>
-      <div className={`font-medium ${isCompact ? "text-xs" : "text-sm"}`}>
-        {name}
-      </div>
-      {phone && (
-        <a
-          href={`tel:${phone}`}
-          className={`flex items-center gap-1 text-blue-600 hover:text-blue-800 transition-colors ${isCompact ? "text-xs" : "text-sm"}`}
-        >
-          <Phone className="h-3 w-3" />
-          <span>{phone}</span>
-        </a>
-      )}
-      <div
-        className={`text-green-600 font-medium ${isCompact ? "text-xs" : "text-sm"}`}
-      >
-        Check-in: {formatDate(checkinDate)}
-      </div>
-    </div>
-  );
-
-  const CompactRecordCard = ({ record }: { record: HistoryRecord }) => (
-    <div className="border-b border-gray-200 py-3 px-2 last:border-b-0">
-      <div className="flex justify-between items-start gap-2 mb-2">
+    <div className={`bg-gray-50 rounded-lg p-3 ${isCompact ? "p-2" : "p-3"}`}>
+      <div className="flex items-center justify-between mb-2">
         <div className="flex items-center gap-2">
-          <span className="font-medium text-sm bg-blue-50 px-2 py-1 rounded text-blue-700">
-            {record.roomNumber}
+          <div
+            className={`w-6 h-6 bg-blue-100 text-blue-700 rounded-full flex items-center justify-center text-xs font-medium`}
+          >
+            {guestNumber}
+          </div>
+          <span
+            className={`font-medium text-gray-900 ${isCompact ? "text-sm" : "text-base"}`}
+          >
+            {name}
           </span>
-          <span className="text-xs text-gray-500 uppercase">
-            {record.roomType}
-          </span>
-          {record.checkoutDate ? (
-            <CheckCircle className="h-3 w-3 text-green-500" />
+        </div>
+        <div className="flex items-center">
+          {checkoutDate ? (
+            <div className="flex items-center gap-1 text-red-600">
+              <CheckCircle className="h-4 w-4" />
+              <span className="text-xs font-medium">Salido</span>
+            </div>
           ) : (
-            <Clock className="h-3 w-3 text-blue-500" />
+            <div className="flex items-center gap-1 text-green-600">
+              <Clock className="h-4 w-4" />
+              <span className="text-xs font-medium">Activo</span>
+            </div>
           )}
         </div>
-
-        <div className="text-right text-xs">
-          <div
-            className={`font-medium ${record.checkoutDate ? "text-red-600" : "text-blue-600"}`}
-          >
-            {record.checkoutDate ? formatDate(record.checkoutDate) : "Ativo"}
-          </div>
-        </div>
       </div>
 
-      {record.companyName && (
-        <div className="text-xs text-blue-600 truncate flex items-center gap-1 mb-2">
-          <Building2 className="h-3 w-3" />
-          {record.companyName}
+      {phone && (
+        <div className="mb-2">
+          <a
+            href={`tel:${phone}`}
+            className="flex items-center gap-1 text-blue-600 hover:text-blue-800 transition-colors text-sm"
+          >
+            <Phone className="h-3 w-3" />
+            <span>{phone}</span>
+          </a>
         </div>
       )}
 
-      {/* Área dos hóspedes dividida */}
-      <div className={`${record.guest2Name ? "grid grid-cols-2 gap-2" : ""}`}>
-        <GuestInfo
-          guestNumber={1}
-          name={record.guest1Name}
-          phone={record.guest1Phone}
-          checkinDate={record.guest1CheckinDate}
-          isCompact={true}
-        />
-
-        {record.guest2Name && (
-          <GuestInfo
-            guestNumber={2}
-            name={record.guest2Name}
-            phone={record.guest2Phone}
-            checkinDate={record.guest2CheckinDate || record.guest1CheckinDate}
-            isCompact={true}
-          />
+      <div className="flex items-center gap-2 text-sm text-gray-600">
+        <span className="bg-green-100 text-green-700 px-2 py-1 rounded-md text-xs font-medium">
+          {formatDate(checkinDate)}
+        </span>
+        {checkoutDate && (
+          <>
+            <ArrowRight className="h-3 w-3 text-gray-400" />
+            <span className="bg-red-100 text-red-700 px-2 py-1 rounded-md text-xs font-medium">
+              {formatDate(checkoutDate)}
+            </span>
+          </>
         )}
       </div>
     </div>
   );
 
+  const CompactRecordCard = ({ record }: { record: HistoryRecord }) => {
+    const reservationStatus = getReservationStatus(record);
+    const isActive = reservationStatus === "Ativa";
+
+    return (
+      <div className="bg-white border-b border-gray-200 p-4 last:border-b-0 hover:bg-gray-50 transition-colors">
+        {/* Header do Card */}
+        <div className="flex justify-between items-center mb-3">
+          <div className="flex items-center gap-3">
+            <div className="bg-blue-600 text-white px-3 py-1 rounded-lg font-bold text-sm">
+              {record.roomNumber}
+            </div>
+            <div className="flex flex-col">
+              <span className="text-xs text-gray-500 uppercase font-medium">
+                {record.roomType === "single"
+                  ? "Habitación Solteiro"
+                  : "Habitación Duplo"}
+              </span>
+            </div>
+          </div>
+          <div
+            className={`flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium ${
+              isActive
+                ? "bg-green-100 text-green-700"
+                : "bg-red-100 text-red-700"
+            }`}
+          >
+            {isActive ? (
+              <Clock className="h-3 w-3" />
+            ) : (
+              <CheckCircle className="h-3 w-3" />
+            )}
+            {isActive ? "Ativa" : "Terminado"}
+          </div>
+        </div>
+
+        {/* Empresa se existir */}
+        {record.companyName && (
+          <div className="mb-3 p-2 bg-blue-50 rounded-lg">
+            <div className="flex items-center gap-2 text-blue-700">
+              <Building2 className="h-4 w-4" />
+              <span className="text-sm font-medium">{record.companyName}</span>
+            </div>
+          </div>
+        )}
+
+        {/* Hóspedes */}
+        <div className="space-y-3">
+          <GuestCard
+            name={record.guest1Name}
+            phone={record.guest1Phone}
+            checkinDate={record.guest1CheckinDate}
+            checkoutDate={record.guest1CheckoutDate}
+            guestNumber={1}
+            isCompact={true}
+          />
+
+          {record.guest2Name && (
+            <GuestCard
+              name={record.guest2Name}
+              phone={record.guest2Phone}
+              checkinDate={record.guest2CheckinDate || record.guest1CheckinDate}
+              checkoutDate={record.guest2CheckoutDate}
+              guestNumber={2}
+              isCompact={true}
+            />
+          )}
+        </div>
+      </div>
+    );
+  };
+
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center min-h-screen px-4">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-2"></div>
-          <p className="text-sm text-gray-600">Carregando...</p>
+      <div className="flex items-center justify-center min-h-screen bg-gray-50">
+        <div className="text-center bg-white p-8 rounded-lg shadow-sm">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <p className="text-gray-600">Carregando histórico...</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="max-w-6xl mx-auto p-2 sm:p-6 space-y-3 sm:space-y-6">
-      <div className="bg-white rounded-lg shadow-sm p-3 sm:p-6">
-        <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2 sm:gap-4">
-          <div>
-            <h1 className="text-lg sm:text-3xl font-bold">Histórico</h1>
-            <div className="flex gap-4 text-xs sm:text-sm text-gray-600 mt-1 sm:hidden">
-              <span>
-                {filteredMonthlyData.reduce(
-                  (sum, month) => sum + month.records.length,
-                  0,
-                )}{" "}
-                reservas
-              </span>
-              <span>
-                {filteredMonthlyData.reduce(
-                  (sum, month) => sum + month.totalGuests,
-                  0,
-                )}{" "}
-                hóspedes
-              </span>
+    <div className="min-h-screen bg-gray-50">
+      <div className="max-w-7xl mx-auto p-4 sm:p-6 space-y-6">
+        {/* Header */}
+        <div className="bg-white rounded-xl shadow-sm p-6">
+          <div className="flex flex-col lg:flex-row lg:justify-between lg:items-center gap-4">
+            <div>
+              <h1 className="text-2xl lg:text-3xl font-bold text-gray-900 mb-2">
+                Historial de reservas
+              </h1>
+              <div className="flex gap-6 text-sm text-gray-600">
+                <span className="flex items-center gap-1">
+                  <Calendar className="h-4 w-4" />
+                  {filteredMonthlyData.reduce(
+                    (sum, month) => sum + month.records.length,
+                    0,
+                  )}{" "}
+                  reservas
+                </span>
+                <span className="flex items-center gap-1">
+                  <User className="h-4 w-4" />
+                  {filteredMonthlyData.reduce(
+                    (sum, month) => sum + month.totalGuests,
+                    0,
+                  )}{" "}
+                  Huéspedes
+                </span>
+              </div>
             </div>
-          </div>
 
-          <select
-            value={selectedYear}
-            onChange={(e) => setSelectedYear(Number(e.target.value))}
-            className="w-full sm:w-auto px-3 py-1.5 text-sm border rounded focus:ring-2 focus:ring-blue-500"
-          >
-            {availableYears.map((year) => (
-              <option key={year} value={year}>
-                {year}
-              </option>
-            ))}
-          </select>
-        </div>
-      </div>
-
-      <div className="bg-white rounded-lg shadow-sm p-3">
-        <div className="flex gap-2 mb-3">
-          <div className="relative flex-1">
-            <Search className="absolute left-2 top-2 h-4 w-4 text-gray-400" />
-            <Input
-              placeholder="Buscar..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-8 py-1.5 text-sm"
-            />
-          </div>
-          <Button
-            onClick={() =>
-              setExpandedMonths(
-                expandedMonths.size === filteredMonthlyData.length
-                  ? new Set()
-                  : new Set(
-                      filteredMonthlyData.map((_, index) => index.toString()),
-                    ),
-              )
-            }
-            variant="outline"
-            size="sm"
-            className="px-2"
-          >
-            {expandedMonths.size === filteredMonthlyData.length ? (
-              <Minimize className="h-4 w-4" />
-            ) : (
-              <Expand className="h-4 w-4" />
-            )}
-          </Button>
-        </div>
-
-        <div className="flex flex-col sm:flex-row gap-2 justify-center">
-          <Button
-            onClick={handleExportYear}
-            variant="outline"
-            size="sm"
-            className="flex items-center gap-2 text-green-700 border-green-300 hover:bg-green-50"
-            disabled={historyData.length === 0}
-          >
-            <Download className="h-4 w-4" />
-            <span className="hidden sm:inline">Excel Completo</span>
-            <span className="sm:hidden">Excel {selectedYear}</span>
-          </Button>
-
-          <Button
-            onClick={handleExportStats}
-            variant="outline"
-            size="sm"
-            className="flex items-center gap-2 text-blue-700 border-blue-300 hover:bg-blue-50"
-            disabled={historyData.length === 0}
-          >
-            <BarChart3 className="h-4 w-4" />
-            <span className="hidden sm:inline">Estatísticas</span>
-            <span className="sm:hidden">Stats</span>
-          </Button>
-        </div>
-      </div>
-
-      {alert && (
-        <Alert
-          className={`p-2 ${alert.type === "success" ? "border-green-300 bg-green-50" : "border-red-300 bg-red-50"}`}
-        >
-          <div className="flex items-center gap-2">
-            {alert.type === "success" ? (
-              <CheckCircle className="h-4 w-4 text-green-600" />
-            ) : (
-              <AlertCircle className="h-4 w-4 text-red-600" />
-            )}
-            <AlertDescription
-              className={`text-sm ${alert.type === "success" ? "text-green-800" : "text-red-800"}`}
-            >
-              {alert.message}
-            </AlertDescription>
-          </div>
-        </Alert>
-      )}
-
-      <div className="space-y-2 sm:space-y-4">
-        {filteredMonthlyData.length === 0 ? (
-          <div className="bg-white rounded-lg shadow-sm p-6 text-center">
-            <div className="text-gray-500 text-sm">
-              {searchTerm
-                ? "Não foram encontrados resultados."
-                : "Não há registros para este ano."}
-            </div>
-          </div>
-        ) : (
-          filteredMonthlyData.map((monthData, index) => {
-            const monthKey = index.toString();
-            const isExpanded = expandedMonths.has(monthKey);
-
-            return (
-              <div
-                key={monthKey}
-                className="bg-white border rounded-lg shadow-sm overflow-hidden"
+            <div className="flex items-center gap-3">
+              <select
+                value={selectedYear}
+                onChange={(e) => setSelectedYear(Number(e.target.value))}
+                className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white"
               >
-                <div
-                  className="flex justify-between items-center p-3 cursor-pointer hover:bg-gray-50 transition-colors"
-                  onClick={() => toggleMonth(monthKey)}
-                >
-                  <div className="flex items-center gap-2">
-                    {isExpanded ? (
-                      <ChevronUp className="h-4 w-4 text-gray-600" />
-                    ) : (
-                      <ChevronDown className="h-4 w-4 text-gray-600" />
-                    )}
-                    <Calendar className="h-4 w-4 text-blue-600" />
-                    <div>
-                      <h3 className="text-sm sm:text-base font-semibold capitalize">
-                        {monthData.month}
-                      </h3>
-                    </div>
-                  </div>
+                {availableYears.map((year) => (
+                  <option key={year} value={year}>
+                    {year}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+        </div>
 
-                  <div className="flex gap-2 text-xs">
+        {/* Controles */}
+        <div className="bg-white rounded-xl shadow-sm p-6">
+          <div className="flex flex-col lg:flex-row gap-4">
+            <div className="flex-1 flex gap-3">
+              <div className="relative flex-1">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                <Input
+                  placeholder="Buscar por nombre, habitación, teléfono o empresa..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="pl-10 h-10"
+                />
+              </div>
+              <Button
+                onClick={() =>
+                  setExpandedMonths(
+                    expandedMonths.size === filteredMonthlyData.length
+                      ? new Set()
+                      : new Set(
+                          filteredMonthlyData.map((_, index) =>
+                            index.toString(),
+                          ),
+                        ),
+                  )
+                }
+                variant="outline"
+                className="h-10 px-4"
+              >
+                {expandedMonths.size === filteredMonthlyData.length ? (
+                  <>
+                    <Minimize className="h-4 w-4 mr-2" />
+                    Fechar Todos
+                  </>
+                ) : (
+                  <>
+                    <Expand className="h-4 w-4 mr-2" />
+                    Abrir Todos
+                  </>
+                )}
+              </Button>
+            </div>
+
+            <div className="flex gap-2">
+              <Button
+                onClick={handleExportYear}
+                variant="outline"
+                className="flex items-center gap-2 text-green-700 border-green-300 hover:bg-green-50 h-10"
+                disabled={historyData.length === 0}
+              >
+                <Download className="h-4 w-4" />
+                Excel {selectedYear}
+              </Button>
+              <Button
+                onClick={handleExportStats}
+                variant="outline"
+                className="flex items-center gap-2 text-blue-700 border-blue-300 hover:bg-blue-50 h-10"
+                disabled={historyData.length === 0}
+              >
+                <BarChart3 className="h-4 w-4" />
+                Estatísticas
+              </Button>
+            </div>
+          </div>
+        </div>
+
+        {/* Alertas */}
+        {alert && (
+          <Alert
+            className={`${
+              alert.type === "success"
+                ? "border-green-300 bg-green-50"
+                : "border-red-300 bg-red-50"
+            }`}
+          >
+            <div className="flex items-center gap-2">
+              {alert.type === "success" ? (
+                <CheckCircle className="h-4 w-4 text-green-600" />
+              ) : (
+                <AlertCircle className="h-4 w-4 text-red-600" />
+              )}
+              <AlertDescription
+                className={`${
+                  alert.type === "success" ? "text-green-800" : "text-red-800"
+                }`}
+              >
+                {alert.message}
+              </AlertDescription>
+            </div>
+          </Alert>
+        )}
+
+        {/* Conteúdo Principal */}
+        <div className="space-y-4">
+          {filteredMonthlyData.length === 0 ? (
+            <div className="bg-white rounded-xl shadow-sm p-12 text-center">
+              <div className="text-gray-400 mb-4">
+                <Calendar className="h-16 w-16 mx-auto" />
+              </div>
+              <h3 className="text-lg font-medium text-gray-900 mb-2">
+                {searchTerm ? "Nenhum resultado encontrado" : "Sem registros"}
+              </h3>
+              <p className="text-gray-500">
+                {searchTerm
+                  ? "Tente ajustar os termos de busca."
+                  : `Não há registros para o ano de ${selectedYear}.`}
+              </p>
+            </div>
+          ) : (
+            filteredMonthlyData.map((monthData, index) => {
+              const monthKey = index.toString();
+              const isExpanded = expandedMonths.has(monthKey);
+
+              return (
+                <div
+                  key={monthKey}
+                  className="bg-white rounded-xl shadow-sm overflow-hidden"
+                >
+                  {/* Header do Mês */}
+                  <div
+                    className="flex justify-between items-center p-6 cursor-pointer hover:bg-gray-50 transition-colors border-b"
+                    onClick={() => toggleMonth(monthKey)}
+                  >
+                    <div className="flex items-center gap-4">
+                      {isExpanded ? (
+                        <ChevronUp className="h-5 w-5 text-gray-400" />
+                      ) : (
+                        <ChevronDown className="h-5 w-5 text-gray-400" />
+                      )}
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
+                          <Calendar className="h-5 w-5 text-blue-600" />
+                        </div>
+                        <div>
+                          <h3 className="text-lg font-semibold text-gray-900 capitalize">
+                            {monthData.month}
+                          </h3>
+                          <p className="text-sm text-gray-500">
+                            {monthData.records.length} reservas •{" "}
+                            {monthData.totalGuests} Huéspedes
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+
                     <Button
                       onClick={(e) => {
                         e.stopPropagation();
@@ -561,130 +677,148 @@ const Page = () => {
                       }}
                       variant="ghost"
                       size="sm"
-                      className="h-6 w-6 p-0 text-green-600 hover:bg-green-50"
-                      title="Exportar este mês"
+                      className="text-green-600 hover:bg-green-50"
                     >
-                      <Download className="h-3 w-3" />
+                      <Download className="h-4 w-4" />
                     </Button>
                   </div>
-                </div>
 
-                {isExpanded && (
-                  <div className="border-t">
-                    {/* Vista de tabela para desktop */}
-                    <div className="hidden lg:block overflow-x-auto">
-                      <table className="w-full text-sm">
-                        <thead className="bg-gray-50">
-                          <tr>
-                            <th className="text-left p-2 font-medium">
-                              Quarto
-                            </th>
-                            <th className="text-left p-2 font-medium">
-                              Empresa
-                            </th>
-                            <th className="text-left p-2 font-medium">
-                              Hóspedes
-                            </th>
-                            <th className="text-left p-2 font-medium">
-                              Check-out
-                            </th>
-                            <th className="text-left p-2 font-medium">
-                              Status
-                            </th>
-                          </tr>
-                        </thead>
-                        <tbody className="divide-y divide-gray-200">
-                          {monthData.records
-                            .sort(
-                              (a, b) =>
-                                new Date(b.guest1CheckinDate).getTime() -
-                                new Date(a.guest1CheckinDate).getTime(),
-                            )
-                            .map((record) => (
-                              <tr key={record.id} className="hover:bg-gray-50">
-                                <td className="p-2">
-                                  <span className="font-medium bg-blue-50 px-2 py-1 rounded text-blue-700">
-                                    {record.roomNumber}
-                                  </span>
-                                  <div className="text-xs text-gray-500 mt-1">
-                                    {record.roomType}
-                                  </div>
-                                </td>
-                                <td className="p-2 text-gray-700 truncate max-w-[100px]">
-                                  {record.companyName || "-"}
-                                </td>
-                                <td className="p-2">
-                                  <div
-                                    className={`${record.guest2Name ? "grid grid-cols-2 gap-3" : ""}`}
+                  {/* Conteúdo do Mês */}
+                  {isExpanded && (
+                    <div>
+                      {/* Vista Desktop (Tabela) */}
+                      <div className="hidden lg:block">
+                        <table className="w-full">
+                          <thead className="bg-gray-50">
+                            <tr>
+                              <th className="text-left p-4 font-medium text-gray-700">
+                                Habitación
+                              </th>
+                              <th className="text-left p-4 font-medium text-gray-700">
+                                Empresa
+                              </th>
+                              <th className="text-left p-4 font-medium text-gray-700">
+                                Huéspedes
+                              </th>
+                              <th className="text-left p-4 font-medium text-gray-700">
+                                Estado
+                              </th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-gray-200">
+                            {monthData.records
+                              .sort(
+                                (a, b) =>
+                                  new Date(b.guest1CheckinDate).getTime() -
+                                  new Date(a.guest1CheckinDate).getTime(),
+                              )
+                              .map((record) => {
+                                const status = getReservationStatus(record);
+                                const isActive = status === "Ativa";
+
+                                return (
+                                  <tr
+                                    key={record.id}
+                                    className="hover:bg-gray-50"
                                   >
-                                    <GuestInfo
-                                      guestNumber={1}
-                                      name={record.guest1Name}
-                                      phone={record.guest1Phone}
-                                      checkinDate={record.guest1CheckinDate}
-                                    />
+                                    <td className="p-4">
+                                      <div className="flex items-center gap-2">
+                                        <span className="bg-blue-600 text-white px-3 py-1 rounded-lg font-bold text-sm">
+                                          {record.roomNumber}
+                                        </span>
+                                        <span className="text-xs text-gray-500 uppercase">
+                                          {record.roomType === "single"
+                                            ? "Solteiro"
+                                            : "Duplo"}
+                                        </span>
+                                      </div>
+                                    </td>
+                                    <td className="p-4">
+                                      {record.companyName ? (
+                                        <div className="flex items-center gap-2 text-blue-700">
+                                          <Building2 className="h-4 w-4" />
+                                          <span className="text-sm font-medium max-w-32 truncate">
+                                            {record.companyName}
+                                          </span>
+                                        </div>
+                                      ) : (
+                                        <span className="text-gray-400">-</span>
+                                      )}
+                                    </td>
+                                    <td className="p-4">
+                                      <div
+                                        className={`flex gap-3 ${record.guest2Name ? "grid grid-cols-2" : ""}`}
+                                      >
+                                        <GuestCard
+                                          name={record.guest1Name}
+                                          phone={record.guest1Phone}
+                                          checkinDate={record.guest1CheckinDate}
+                                          checkoutDate={
+                                            record.guest1CheckoutDate
+                                          }
+                                          guestNumber={1}
+                                        />
+                                        {record.guest2Name && (
+                                          <GuestCard
+                                            name={record.guest2Name}
+                                            phone={record.guest2Phone}
+                                            checkinDate={
+                                              record.guest2CheckinDate ||
+                                              record.guest1CheckinDate
+                                            }
+                                            checkoutDate={
+                                              record.guest2CheckoutDate
+                                            }
+                                            guestNumber={2}
+                                          />
+                                        )}
+                                      </div>
+                                    </td>
+                                    <td className="p-4">
+                                      <div
+                                        className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-sm font-medium ${
+                                          isActive
+                                            ? "bg-green-100 text-green-700"
+                                            : "bg-red-100 text-red-700"
+                                        }`}
+                                      >
+                                        {isActive ? (
+                                          <Clock className="h-4 w-4" />
+                                        ) : (
+                                          <CheckCircle className="h-4 w-4" />
+                                        )}
+                                        {status}
+                                      </div>
+                                    </td>
+                                  </tr>
+                                );
+                              })}
+                          </tbody>
+                        </table>
+                      </div>
 
-                                    {record.guest2Name && (
-                                      <GuestInfo
-                                        guestNumber={2}
-                                        name={record.guest2Name}
-                                        phone={record.guest2Phone}
-                                        checkinDate={
-                                          record.guest2CheckinDate ||
-                                          record.guest1CheckinDate
-                                        }
-                                      />
-                                    )}
-                                  </div>
-                                </td>
-                                <td className="p-2">
-                                  {record.checkoutDate ? (
-                                    <span className="text-red-700 font-medium">
-                                      {formatDate(record.checkoutDate)}
-                                    </span>
-                                  ) : (
-                                    <span className="text-blue-600 font-medium">
-                                      Ativo
-                                    </span>
-                                  )}
-                                </td>
-                                <td className="p-2">
-                                  {record.checkoutDate ? (
-                                    <span className="flex items-center gap-1 text-green-600 text-xs">
-                                      <CheckCircle className="h-3 w-3" />
-                                      Finalizada
-                                    </span>
-                                  ) : (
-                                    <span className="flex items-center gap-1 text-blue-600 text-xs">
-                                      <Clock className="h-3 w-3" />
-                                      Ativa
-                                    </span>
-                                  )}
-                                </td>
-                              </tr>
-                            ))}
-                        </tbody>
-                      </table>
+                      {/* Vista Mobile */}
+                      <div className="lg:hidden divide-y divide-gray-200">
+                        {monthData.records
+                          .sort(
+                            (a, b) =>
+                              new Date(b.guest1CheckinDate).getTime() -
+                              new Date(a.guest1CheckinDate).getTime(),
+                          )
+                          .map((record) => (
+                            <CompactRecordCard
+                              key={record.id}
+                              record={record}
+                            />
+                          ))}
+                      </div>
                     </div>
-
-                    {/* Vista super compacta para mobile/tablet */}
-                    <div className="lg:hidden">
-                      {monthData.records
-                        .sort(
-                          (a, b) =>
-                            new Date(b.guest1CheckinDate).getTime() -
-                            new Date(a.guest1CheckinDate).getTime(),
-                        )
-                        .map((record) => (
-                          <CompactRecordCard key={record.id} record={record} />
-                        ))}
-                    </div>
-                  </div>
-                )}
-              </div>
-            );
-          })
-        )}
+                  )}
+                </div>
+              );
+            })
+          )}
+        </div>
       </div>
     </div>
   );
