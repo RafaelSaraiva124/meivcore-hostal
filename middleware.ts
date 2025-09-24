@@ -102,14 +102,14 @@ export async function middleware(request: NextRequest) {
   }
 }
 
-// Função para gerar HTML da página "Pending"
+// Función para generar HTML de la página "Pending" (en español)
 function generatePendingHTML(email: string): string {
   return `<!DOCTYPE html>
-<html lang="pt">
+<html lang="es">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Conta Pendente - Hostel Manager</title>
+  <title>Cuenta Pendiente - Hostel Manager</title>
   <style>
     * {
       margin: 0;
@@ -181,9 +181,13 @@ function generatePendingHTML(email: string): string {
       margin-bottom: 2rem;
       font-size: 1rem;
     }
-    .logout-btn {
-      background: linear-gradient(135deg, #ef4444, #dc2626);
-      color: white;
+    .buttons {
+      display: flex;
+      gap: 1rem;
+      flex-wrap: wrap;
+      justify-content: center;
+    }
+    .btn {
       padding: 1rem 2rem;
       border: none;
       border-radius: 0.75rem;
@@ -193,13 +197,27 @@ function generatePendingHTML(email: string): string {
       text-decoration: none;
       display: inline-block;
       transition: all 0.2s ease;
+      min-width: 140px;
+    }
+    .btn-primary {
+      background: linear-gradient(135deg, #10b981, #059669);
+      color: white;
+      box-shadow: 0 4px 15px rgba(16, 185, 129, 0.3);
+    }
+    .btn-primary:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 25px rgba(16, 185, 129, 0.4);
+    }
+    .btn-secondary {
+      background: linear-gradient(135deg, #ef4444, #dc2626);
+      color: white;
       box-shadow: 0 4px 15px rgba(239, 68, 68, 0.3);
     }
-    .logout-btn:hover {
+    .btn-secondary:hover {
       transform: translateY(-2px);
       box-shadow: 0 8px 25px rgba(239, 68, 68, 0.4);
     }
-    .logout-btn:active {
+    .btn:active {
       transform: translateY(0);
     }
     .status-badge {
@@ -213,39 +231,49 @@ function generatePendingHTML(email: string): string {
       margin-top: 1rem;
     }
   </style>
+  <script>
+    function refreshPage() {
+      window.location.reload();
+    }
+  </script>
 </head>
 <body>
   <div class="container">
     <div class="icon">⏳</div>
-    <h1>Conta Pendente de Aprovação</h1>
+    <h1>Cuenta Pendiente de Aprobación</h1>
     
     <div class="user-info">
-      <p><strong>Email:</strong> ${email}</p>
-      <p><strong>Status:</strong> <span class="status-badge">Pendente</span></p>
+      <p><strong>Correo:</strong> ${email}</p>
+      <p><strong>Estado:</strong> <span class="status-badge">Pendiente</span></p>
     </div>
     
     <div class="description">
-      <p>A sua conta foi criada com sucesso, mas ainda está <strong>pendente de aprovação</strong> por um administrador do sistema.</p>
+      <p>Su cuenta ha sido creada exitosamente, pero aún está <strong>pendiente de aprobación</strong> por un administrador del sistema.</p>
       <br>
-      <p>Por favor, aguarde a aprovação ou entre em contacto com o administrador.</p>
+      <p>Por favor, aguarde la aprobación o póngase en contacto con el administrador.</p>
     </div>
     
-    <a href="/api/auth/signout" class="logout-btn">
-     Terminar Sessão
-    </a>
+    <div class="buttons">
+      <button onclick="refreshPage()" class="btn btn-primary">
+        🔄 Actualizar
+      </button>
+      <a href="/api/auth/signout" class="btn btn-secondary">
+        🚪 Cerrar Sesión
+      </a>
+    </div>
   </div>
 </body>
 </html>`;
 }
 
-// Função para gerar HTML da página "Access Denied"
+// Función para generar HTML de la página "Access Denied" (en español)
 function generateAccessDeniedHTML(email: string, role: string): string {
   return `<!DOCTYPE html>
-<html lang="pt">
+<html lang="es">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Acesso Negado - Hostel Manager</title>
+  <title>Acceso Denegado - Hostel Manager</title>
   <style>
     * {
       margin: 0;
@@ -348,6 +376,15 @@ function generateAccessDeniedHTML(email: string, role: string): string {
       transform: translateY(-2px);
       box-shadow: 0 8px 25px rgba(107, 114, 128, 0.4);
     }
+    .btn-refresh {
+      background: linear-gradient(135deg, #10b981, #059669);
+      color: white;
+      box-shadow: 0 4px 15px rgba(16, 185, 129, 0.3);
+    }
+    .btn-refresh:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 25px rgba(16, 185, 129, 0.4);
+    }
     .role-badge {
       display: inline-block;
       background: #fee2e2;
@@ -358,26 +395,34 @@ function generateAccessDeniedHTML(email: string, role: string): string {
       font-weight: 600;
     }
   </style>
+  <script>
+    function refreshPage() {
+      window.location.reload();
+    }
+  </script>
 </head>
 <body>
   <div class="container">
     <div class="icon">🚫</div>
-    <h1>Acesso Negado</h1>
+    <h1>Acceso Denegado</h1>
     
     <div class="user-info">
-      <p><strong>Email:</strong> ${email}</p>
-      <p><strong>Role:</strong> <span class="role-badge">${role}</span></p>
+      <p><strong>Correo:</strong> ${email}</p>
+      <p><strong>Rol:</strong> <span class="role-badge">${role}</span></p>
     </div>
     
     <div class="description">
-      <p>Não tem permissões para aceder a esta área do sistema.</p>
+      <p>No tiene permisos para acceder a esta área del sistema.</p>
       <br>
-      <p>Esta funcionalidade está <strong>restrita a administradores</strong>.</p>
+      <p>Esta funcionalidad está <strong>restringida a administradores</strong>.</p>
     </div>
     
     <div class="buttons">
-      <a href="/" class="btn btn-primary">🏠 Início</a>
-      <a href="/api/auth/signout" class="btn btn-secondary">🚪 Sair</a>
+      <button onclick="refreshPage()" class="btn btn-refresh">
+        🔄 Actualizar
+      </button>
+      <a href="/" class="btn btn-primary">🏠 Inicio</a>
+      <a href="/api/auth/signout" class="btn btn-secondary">🚪 Salir</a>
     </div>
   </div>
 </body>
