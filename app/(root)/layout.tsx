@@ -4,6 +4,8 @@ import Header from "@/components/Header";
 import { auth } from "@/auth";
 import { redirect } from "next/navigation";
 
+import { SpeedInsights } from "@vercel/speed-insights/next";
+
 const Layout = async ({ children }: { children: ReactNode }) => {
   const session = await auth();
   if (!session) redirect("/sign-in");
