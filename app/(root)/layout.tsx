@@ -16,6 +16,7 @@ const Layout = async ({ children }: { children: ReactNode }) => {
     <main className="flex min-h-screen flex-1 flex-col">
       <div className="mx-auto w-full max-w-7xl px-5 xs:px-10 md:px-16">
         <Header session={session} />
+        <SpeedInsights />
         <div className="mt-20 pb-20 flex justify-center">
           <div className="w-full max-w-4xl">{children}</div>
         </div>
