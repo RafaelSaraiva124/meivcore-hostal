@@ -106,6 +106,15 @@ const AuthForm = <T extends FieldValues>({
                       }
                       placeholder={`Introduce tu ${FIELD_NAMES[field.name as keyof typeof FIELD_NAMES]}`}
                       {...field}
+                      autoComplete={
+                        field.name === "password"
+                          ? "new-password"
+                          : field.name === "confirmPassword"
+                            ? "new-password"
+                            : field.name === "email"
+                              ? "username"
+                              : "on"
+                      }
                       className="border rounded-md px-3 py-2 w-full focus:ring-2 focus:ring-blue-500"
                     />
                   </FormControl>
